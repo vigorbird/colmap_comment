@@ -44,7 +44,10 @@
 
 namespace colmap {
 
+
+
 int RunAutomaticReconstructor(int argc, char** argv) {
+  //1.设置配置采参数
   AutomaticReconstructionController::Options reconstruction_options;
   std::string data_type = "individual";
   std::string quality = "high";
@@ -57,8 +60,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
-  options.AddDefaultOption(
-      "data_type", &data_type, "{individual, video, internet}");
+  options.AddDefaultOption("data_type", &data_type, "{individual, video, internet}");
   options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");
   options.AddDefaultOption("camera_model",
                            &reconstruction_options.camera_model);
@@ -74,16 +76,14 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
 
-  StringToLower(&data_type);
+  StringToLower(&data_type);//保证所有字符都是小写 
+  //将字符串转换成枚举类型
   if (data_type == "individual") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INDIVIDUAL;
+    reconstruction_options.data_type = AutomaticReconstructionController::DataType::INDIVIDUAL;
   } else if (data_type == "video") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::VIDEO;
+    reconstruction_options.data_type = AutomaticReconstructionController::DataType::VIDEO;
   } else if (data_type == "internet") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::INTERNET;
+    reconstruction_options.data_type = AutomaticReconstructionController::DataType::INTERNET;
   } else {
     LOG(FATAL_THROW) << "Invalid data type provided";
   }
@@ -118,15 +118,20 @@ int RunAutomaticReconstructor(int argc, char** argv) {
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
+  //2.实际启动线程！！！！！
+  //cuda没有被使能 并且开启了gui界面 则kUseOpenGL = true
+  //进入下面这个if的条件是：用户想要使用gpu，但是系统没有找到gpu，并且开启了gui界面
   if (reconstruction_options.use_gpu && kUseOpenGL) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);
     RunThreadWithOpenGLContext(&controller);
   } else {
+    //我个人人为直接看这个条件就行！
+    //构造函数很重要！！！！里面设定了各个模块的运行函数！！！搜索 "AutomaticReconstructionController构造函数"
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);
-    controller.Start();
+    controller.Start();//里面会启动线程！本质上是调用了 “AutomaticReconstructionController::Run() { ”函数
     controller.Wait();
   }
 

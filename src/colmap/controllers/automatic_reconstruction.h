@@ -38,6 +38,7 @@
 
 namespace colmap {
 
+//注意！Thread是作者自己定义的类！
 class AutomaticReconstructionController : public Thread {
  public:
   enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
@@ -109,17 +110,17 @@ class AutomaticReconstructionController : public Thread {
 
  private:
   void Run() override;
-  void RunFeatureExtraction();
-  void RunFeatureMatching();
-  void RunSparseMapper();
+  void RunFeatureExtraction();//搜索 AutomaticReconstructionController::RunFeatureExtraction()
+  void RunFeatureMatching();// 搜索 AutomaticReconstructionController::RunFeatureMatching()
+  void RunSparseMapper();//搜索 AutomaticReconstructionController::RunSparseMapper()
   void RunDenseMapper();
 
   const Options options_;
   OptionManager option_manager_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   Thread* active_thread_;
-  std::unique_ptr<Thread> feature_extractor_;
-  std::unique_ptr<Thread> exhaustive_matcher_;
+  std::unique_ptr<Thread> feature_extractor_;//搜索 FeatureExtractorController
+  std::unique_ptr<Thread> exhaustive_matcher_;//搜索 ExhaustiveFeatureMatcher
   std::unique_ptr<Thread> sequential_matcher_;
   std::unique_ptr<Thread> vocab_tree_matcher_;
 };

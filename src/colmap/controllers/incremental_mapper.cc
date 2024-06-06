@@ -306,21 +306,18 @@ IncrementalMapperController::InitializeReconstruction(
     ExtractColors(image_path_, image_id1, reconstruction);
   }
   return Status::SUCCESS;
-}
+}//end function InitializeReconstruction
 
 bool IncrementalMapperController::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
     const size_t ba_prev_num_reg_images,
     const size_t ba_prev_num_points) {
-  return reconstruction.NumRegImages() >=
-             options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-         reconstruction.NumRegImages() >=
-             options_->ba_global_images_freq + ba_prev_num_reg_images ||
-         reconstruction.NumPoints3D() >=
-             options_->ba_global_points_ratio * ba_prev_num_points ||
-         reconstruction.NumPoints3D() >=
-             options_->ba_global_points_freq + ba_prev_num_points;
+  return reconstruction.NumRegImages() >= options_->ba_global_images_ratio * ba_prev_num_reg_images ||
+         reconstruction.NumRegImages() >= options_->ba_global_images_freq + ba_prev_num_reg_images ||
+         reconstruction.NumPoints3D() >=  options_->ba_global_points_ratio * ba_prev_num_points ||
+         reconstruction.NumPoints3D() >=  options_->ba_global_points_freq + ba_prev_num_points;
 }
+
 
 IncrementalMapperController::Status
 IncrementalMapperController::ReconstructSubModel(
@@ -456,20 +453,17 @@ IncrementalMapperController::ReconstructSubModel(
   return Status::SUCCESS;
 }
 
-void IncrementalMapperController::Reconstruct(
-    const IncrementalMapper::Options& mapper_options) {
+void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& mapper_options) {
   IncrementalMapper mapper(database_cache_);
 
   // Is there a sub-model before we start the reconstruction? I.e. the user
   // has imported an existing reconstruction.
   const bool initial_reconstruction_given = reconstruction_manager_->Size() > 0;
-  THROW_CHECK_LE(reconstruction_manager_->Size(), 1)
-      << "Can only resume from a "
-         "single reconstruction, but "
-         "multiple are given.";
+  THROW_CHECK_LE(reconstruction_manager_->Size(), 1) << "Can only resume from a "
+                                                        "single reconstruction, but "
+                                                        "multiple are given.";
 
-  for (int num_trials = 0; num_trials < options_->init_num_trials;
-       ++num_trials) {
+  for (int num_trials = 0; num_trials < options_->init_num_trials; ++num_trials) {
     if (CheckIfStopped()) {
       break;
     }
@@ -479,11 +473,10 @@ void IncrementalMapperController::Reconstruct(
     } else {
       reconstruction_idx = 0;
     }
-    std::shared_ptr<Reconstruction> reconstruction =
-        reconstruction_manager_->Get(reconstruction_idx);
+    std::shared_ptr<Reconstruction> reconstruction =  reconstruction_manager_->Get(reconstruction_idx);
 
-    const Status status =
-        ReconstructSubModel(mapper, mapper_options, reconstruction);
+    const Status status = ReconstructSubModel(mapper, mapper_options, reconstruction);
+
     switch (status) {
       case Status::INTERRUPTED:
         mapper.EndReconstruction(/*discard=*/false);
@@ -510,13 +503,15 @@ void IncrementalMapperController::Reconstruct(
         // minimum model size so that we can reconstruct small image
         // collections. Always keep the first reconstruction, independent of
         // size.
-        const size_t min_model_size = std::min<size_t>(
-            0.8 * database_cache_->NumImages(), options_->min_model_size);
-        if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
+        const size_t min_model_size = std::min<size_t>( 0.8 * database_cache_->NumImages(), options_->min_model_size);
+        if ((options_->multiple_models && 
+             reconstruction_manager_->Size() > 1 &&
              reconstruction->NumRegImages() < min_model_size) ||
             reconstruction->NumRegImages() == 0) {
-          mapper.EndReconstruction(/*discard=*/true);
-          reconstruction_manager_->Delete(reconstruction_idx);
+
+            mapper.EndReconstruction(/*discard=*/true);
+            reconstruction_manager_->Delete(reconstruction_idx);
+
         } else {
           mapper.EndReconstruction(/*discard=*/false);
         }
@@ -524,8 +519,7 @@ void IncrementalMapperController::Reconstruct(
         Callback(LAST_IMAGE_REG_CALLBACK);
 
         if (initial_reconstruction_given || !options_->multiple_models ||
-            reconstruction_manager_->Size() >=
-                static_cast<size_t>(options_->max_num_models) ||
+            reconstruction_manager_->Size() >= static_cast<size_t>(options_->max_num_models) ||
             total_num_reg_images >= database_cache_->NumImages() - 1) {
           return;
         }
@@ -533,9 +527,9 @@ void IncrementalMapperController::Reconstruct(
 
       default:
         LOG(FATAL_THROW) << "Unknown reconstruction status.";
-    }
-  }
-}
+    }//end switch case
+  }//end for 遍历次数！
+}//end function Reconstruct!!!
 
 void IncrementalMapperController::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {

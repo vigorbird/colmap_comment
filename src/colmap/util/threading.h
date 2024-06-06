@@ -176,7 +176,7 @@ class Thread {
   bool setup_;
   bool setup_valid_;
 
-  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;//这个变量中会存储要运行的函数，key = 0表示启动时候要运行的函数， key=1表示结束时候要运行的函数
 };
 
 // A thread pool class to submit generic tasks (functors) to a pool of workers:

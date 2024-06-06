@@ -94,6 +94,7 @@ int main(int argc, char** argv) {
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
+  //我们主要关注的函数！ 进行自动重建
   commands.emplace_back("automatic_reconstructor",
                         &colmap::RunAutomaticReconstructor);
   commands.emplace_back("bundle_adjuster", &colmap::RunBundleAdjuster);
@@ -102,9 +103,12 @@ int main(int argc, char** argv) {
   commands.emplace_back("database_creator", &colmap::RunDatabaseCreator);
   commands.emplace_back("database_merger", &colmap::RunDatabaseMerger);
   commands.emplace_back("delaunay_mesher", &colmap::RunDelaunayMesher);
+  //我们主要关注的函数！进行特征点匹配
   commands.emplace_back("exhaustive_matcher", &colmap::RunExhaustiveMatcher);
+  //我们主要关注的函数！进行特征点提取
   commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
   commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
+  //
   commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
   commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
   commands.emplace_back("image_filterer", &colmap::RunImageFilterer);
@@ -113,6 +117,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("image_undistorter", &colmap::RunImageUndistorter);
   commands.emplace_back("image_undistorter_standalone",
                         &colmap::RunImageUndistorterStandalone);
+  //我们主要关注的函数！进行稀疏重建                    
   commands.emplace_back("mapper", &colmap::RunMapper);
   commands.emplace_back("matches_importer", &colmap::RunMatchesImporter);
   commands.emplace_back("model_aligner", &colmap::RunModelAligner);
@@ -131,11 +136,16 @@ int main(int argc, char** argv) {
   commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
   commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
   commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
+   //我们主要关注的函数！不同的匹配模式！
   commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
+  //我们主要关注的函数！不同的匹配模式！
   commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
   commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
+  //我们主要关注的函数！不同的匹配模式！
   commands.emplace_back("transitive_matcher", &colmap::RunTransitiveMatcher);
+  //我们主要关注的函数！不同的匹配模式！
   commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
+  //我们主要关注的函数！不同的匹配模式！
   commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
   commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
 

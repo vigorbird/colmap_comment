@@ -42,6 +42,7 @@
 
 namespace colmap {
 
+//AutomaticReconstructionController构造函数
 AutomaticReconstructionController::AutomaticReconstructionController(
     const Options& options,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
@@ -52,6 +53,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   THROW_CHECK_DIR_EXISTS(options_.image_path);
   THROW_CHECK_NOTNULL(reconstruction_manager_);
 
+  //1.设置一些参数的配置！！！
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
@@ -105,37 +107,32 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.sift_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
 
-  feature_extractor_ = CreateFeatureExtractorController(
-      reader_options, *option_manager_.sift_extraction);
-
-  exhaustive_matcher_ =
-      CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
+  //2.非常重要！！！！生成各个线程用于特征点提取 匹配
+  feature_extractor_ = CreateFeatureExtractorController( reader_options, *option_manager_.sift_extraction);
+  //
+  exhaustive_matcher_ = CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
+                                                        *option_manager_.sift_matching,
+                                                        *option_manager_.two_view_geometry,
+                                                        *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
     option_manager_.sequential_matching->loop_detection = true;
-    option_manager_.sequential_matching->vocab_tree_path =
-        options_.vocab_tree_path;
+    option_manager_.sequential_matching->vocab_tree_path =  options_.vocab_tree_path;
   }
 
-  sequential_matcher_ =
-      CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
-                                     *option_manager_.sift_matching,
-                                     *option_manager_.two_view_geometry,
-                                     *option_manager_.database_path);
+  sequential_matcher_ =  CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
+                                                        *option_manager_.sift_matching,
+                                                        *option_manager_.two_view_geometry,
+                                                        *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
-    option_manager_.vocab_tree_matching->vocab_tree_path =
-        options_.vocab_tree_path;
-    vocab_tree_matcher_ =
-        CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
-                                      *option_manager_.sift_matching,
-                                      *option_manager_.two_view_geometry,
-                                      *option_manager_.database_path);
+    option_manager_.vocab_tree_matching->vocab_tree_path =  options_.vocab_tree_path;
+    vocab_tree_matcher_ =  CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
+                                                        *option_manager_.sift_matching,
+                                                        *option_manager_.two_view_geometry,
+                                                        *option_manager_.database_path);
   }
-}
+}//end function AutomaticReconstructionController
 
 void AutomaticReconstructionController::Stop() {
   if (active_thread_ != nullptr) {
@@ -144,6 +141,7 @@ void AutomaticReconstructionController::Stop() {
   Thread::Stop();
 }
 
+//
 void AutomaticReconstructionController::Run() {
   if (IsStopped()) {
     return;
@@ -174,6 +172,7 @@ void AutomaticReconstructionController::Run() {
   }
 }
 
+//
 void AutomaticReconstructionController::RunFeatureExtraction() {
   THROW_CHECK_NOTNULL(feature_extractor_);
   active_thread_ = feature_extractor_.get();
@@ -214,8 +213,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
     auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
     if (dir_list.size() > 0) {
-      LOG(WARNING)
-          << "Skipping sparse reconstruction because it is already computed";
+      LOG(WARNING) << "Skipping sparse reconstruction because it is already computed";
       for (const auto& dir : dir_list) {
         reconstruction_manager_->Read(dir);
       }
@@ -228,12 +226,12 @@ void AutomaticReconstructionController::RunSparseMapper() {
                                      *option_manager_.database_path,
                                      reconstruction_manager_);
   mapper.SetCheckIfStoppedFunc([&]() { return IsStopped(); });
-  mapper.Run();
+  mapper.Run();//搜索 "IncrementalMapperController::Run()"
 
   CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(sparse_path);
   option_manager_.Write(JoinPaths(sparse_path, "project.ini"));
-}
+}//end funtion AutomaticReconstructionController
 
 void AutomaticReconstructionController::RunDenseMapper() {
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));

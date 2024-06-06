@@ -42,7 +42,7 @@ class QApplication {
 #endif
 
 namespace colmap {
-
+//COLMAP_CUDA_ENABLED 这个变量是在编译的时候被设置，标识是否在系统中找到了cuda依赖
 #if defined(COLMAP_CUDA_ENABLED) || !defined(COLMAP_GUI_ENABLED)
 const bool kUseOpenGL = false;
 #else
