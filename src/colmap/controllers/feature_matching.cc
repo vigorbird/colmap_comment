@@ -193,35 +193,34 @@ class ExhaustiveFeatureMatcher : public Thread {
   }
 
  private:
+
+  //ExhaustiveFeatureMatcher Run函数
   void Run() override {
     PrintHeading1("Exhaustive feature matching");
     Timer run_timer;
     run_timer.Start();
 
+    //非常重要的函数！！！启动多个线程进行匹配业务的处理！！！！
     if (!matcher_.Setup()) {
       return;
     }
 
-    cache_.Setup();
+    cache_.Setup();//应该是读取特征点匹配的数据！
 
     const std::vector<image_t> image_ids = cache_.GetImageIds();
 
-    const size_t block_size = static_cast<size_t>(options_.block_size);
-    const size_t num_blocks = static_cast<size_t>(
-        std::ceil(static_cast<double>(image_ids.size()) / block_size));
+    const size_t block_size = static_cast<size_t>(options_.block_size);//Number of image pairs to match in one batch.
+    const size_t num_blocks = static_cast<size_t>(std::ceil(static_cast<double>(image_ids.size()) / block_size));
     const size_t num_pairs_per_block = block_size * (block_size - 1) / 2;
 
     std::vector<std::pair<image_t, image_t>> image_pairs;
     image_pairs.reserve(num_pairs_per_block);
 
-    for (size_t start_idx1 = 0; start_idx1 < image_ids.size();
-         start_idx1 += block_size) {
-      const size_t end_idx1 =
-          std::min(image_ids.size(), start_idx1 + block_size) - 1;
-      for (size_t start_idx2 = 0; start_idx2 < image_ids.size();
-           start_idx2 += block_size) {
-        const size_t end_idx2 =
-            std::min(image_ids.size(), start_idx2 + block_size) - 1;
+    //难道这个部分不能进行加速么？？？？？
+    for (size_t start_idx1 = 0; start_idx1 < image_ids.size(); start_idx1 += block_size) {
+      const size_t end_idx1 = std::min(image_ids.size(), start_idx1 + block_size) - 1;
+      for (size_t start_idx2 = 0; start_idx2 < image_ids.size(); start_idx2 += block_size) {
+        const size_t end_idx2 = std::min(image_ids.size(), start_idx2 + block_size) - 1;
 
         if (IsStopped()) {
           run_timer.PrintMinutes();
@@ -239,27 +238,26 @@ class ExhaustiveFeatureMatcher : public Thread {
                   << std::flush;
 
         image_pairs.clear();
+        //两个block之间所有的图像进行匹配！！！！
         for (size_t idx1 = start_idx1; idx1 <= end_idx1; ++idx1) {
           for (size_t idx2 = start_idx2; idx2 <= end_idx2; ++idx2) {
             const size_t block_id1 = idx1 % block_size;
             const size_t block_id2 = idx2 % block_size;
-            if ((idx1 > idx2 && block_id1 <= block_id2) ||
-                (idx1 < idx2 &&
-                 block_id1 < block_id2)) {  // Avoid duplicate pairs
+            if ((idx1 > idx2 && block_id1 <= block_id2) || (idx1 < idx2 && block_id1 < block_id2)) {  // Avoid duplicate pairs
               image_pairs.emplace_back(image_ids[idx1], image_ids[idx2]);
             }
           }
         }
 
         DatabaseTransaction database_transaction(&database_);
-        matcher_.Match(image_pairs);
+        matcher_.Match(image_pairs);//非常重要的函数！！！！！！！！
 
         PrintElapsedTime(timer);
       }
     }
 
     run_timer.PrintMinutes();
-  }
+  }//end function Run
 
   const ExhaustiveMatchingOptions options_;
   const SiftMatchingOptions matching_options_;

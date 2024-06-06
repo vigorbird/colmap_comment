@@ -42,7 +42,7 @@ namespace colmap {
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          const Database* database)
-    : cache_size_(cache_size), database_(database) {
+                                        : cache_size_(cache_size), database_(database) {
   THROW_CHECK_NOTNULL(database_);
 }
 
@@ -82,7 +82,7 @@ void FeatureMatcherCache::Setup() {
       images_cache_.size(), [this](const image_t image_id) {
         return database_->ExistsDescriptors(image_id);
       });
-}
+}//end function  FeatureMatcherCache::Setup()
 
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
   return cameras_cache_.at(camera_id);
@@ -473,10 +473,8 @@ FeatureMatcherController::~FeatureMatcherController() {
 bool FeatureMatcherController::Setup() {
   // Minimize the amount of allocated GPU memory by computing the maximum number
   // of descriptors for any image over the whole database.
-  const int max_num_features =
-      THROW_CHECK_NOTNULL(database_)->MaxNumKeypoints();
-  matching_options_.max_num_matches =
-      std::min(matching_options_.max_num_matches, max_num_features);
+  const int max_num_features = THROW_CHECK_NOTNULL(database_)->MaxNumKeypoints();
+  matching_options_.max_num_matches = std::min(matching_options_.max_num_matches, max_num_features);
 
   for (auto& matcher : matchers_) {
     matcher->SetMaxNumMatches(matching_options_.max_num_matches);
@@ -509,8 +507,9 @@ bool FeatureMatcherController::Setup() {
   return true;
 }
 
-void FeatureMatcherController::Match(
-    const std::vector<std::pair<image_t, image_t>>& image_pairs) {
+
+//
+void FeatureMatcherController::Match(const std::vector<std::pair<image_t, image_t>>& image_pairs) {
   THROW_CHECK_NOTNULL(database_);
   THROW_CHECK_NOTNULL(cache_);
   THROW_CHECK(is_setup_);
@@ -600,6 +599,6 @@ void FeatureMatcherController::Match(
   }
 
   THROW_CHECK_EQ(output_queue_.Size(), 0);
-}
+}//end function match
 
 }  // namespace colmap

@@ -264,10 +264,11 @@ int ThreadPool::GetThreadIndex() {
   return thread_id_to_index_.at(GetThreadId());
 }
 
+//
 int GetEffectiveNumThreads(const int num_threads) {
   int num_effective_threads = num_threads;
   if (num_threads <= 0) {
-    num_effective_threads = std::thread::hardware_concurrency();
+    num_effective_threads = std::thread::hardware_concurrency();//返回的是系统中所有的硬件线程个数
   }
 
   if (num_effective_threads <= 0) {

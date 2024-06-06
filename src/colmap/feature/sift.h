@@ -118,8 +118,7 @@ struct SiftExtractionOptions {
 // context must be made current in the thread of the caller. If the gpu_index is
 // not -1, the CUDA version of SiftGPU is used, which produces slightly
 // different results than the OpenGL implementation.
-std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
-    const SiftExtractionOptions& options);
+std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(const SiftExtractionOptions& options);
 
 struct SiftMatchingOptions {
   // Number of threads for feature matching and geometric verification.
@@ -153,8 +152,7 @@ struct SiftMatchingOptions {
   bool Check() const;
 };
 
-std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
-    const SiftMatchingOptions& options);
+std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher( const SiftMatchingOptions& options);
 
 // Load keypoints and descriptors from text file in the following format:
 //

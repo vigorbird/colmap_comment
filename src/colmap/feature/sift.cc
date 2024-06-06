@@ -93,8 +93,7 @@ void WarnDarknessAdaptivityNotAvailable() {
 
 // VLFeat uses a different convention to store its descriptors. This transforms
 // the VLFeat format into the original SIFT format that is also used by SiftGPU.
-FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
-    const FeatureDescriptors& vlfeat_descriptors) {
+FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors( const FeatureDescriptors& vlfeat_descriptors) {
   FeatureDescriptors ubc_descriptors(vlfeat_descriptors.rows(),
                                      vlfeat_descriptors.cols());
   const std::array<int, 8> q{{0, 7, 6, 5, 4, 3, 2, 1}};
@@ -113,7 +112,7 @@ FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
 
 class SiftCPUFeatureExtractor : public FeatureExtractor {
  public:
-  using VlSiftType = std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)>;
+  using VlSiftType = std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)>;//VlSiftFilt = 是vlfeature的三方库
 
   explicit SiftCPUFeatureExtractor(const SiftExtractionOptions& options)
       : options_(options), sift_(nullptr, &vl_sift_delete) {
@@ -125,11 +124,12 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     }
   }
 
-  static std::unique_ptr<FeatureExtractor> Create(
-      const SiftExtractionOptions& options) {
+  static std::unique_ptr<FeatureExtractor> Create(const SiftExtractionOptions& options) {
     return std::make_unique<SiftCPUFeatureExtractor>(options);
   }
 
+  //输入的是一张图像，输出是一张图像中的特征点和描述子
+  //这个函数优先级不高，可以先不看！CPU版本的特征点和描述子提取
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) {
@@ -302,7 +302,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
     }
 
     return true;
-  }
+  }//end function Extract
 
  private:
   const SiftExtractionOptions options_;
@@ -511,7 +511,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
  private:
   const SiftExtractionOptions options_;
-};
+};//end classs CovariantSiftCPUFeatureExtractor
 
 #if defined(COLMAP_GPU_ENABLED)
 // Mutexes that ensure that only one thread extracts/matches on the same GPU
@@ -520,15 +520,13 @@ static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes_;
 
 class SiftGPUFeatureExtractor : public FeatureExtractor {
  public:
-  explicit SiftGPUFeatureExtractor(const SiftExtractionOptions& options)
-      : options_(options) {
+  explicit SiftGPUFeatureExtractor(const SiftExtractionOptions& options) : options_(options) {
     THROW_CHECK(options_.Check());
     THROW_CHECK(!options_.estimate_affine_shape);
     THROW_CHECK(!options_.domain_size_pooling);
   }
 
-  static std::unique_ptr<FeatureExtractor> Create(
-      const SiftExtractionOptions& options) {
+  static std::unique_ptr<FeatureExtractor> Create(const SiftExtractionOptions& options) {
     // SiftGPU uses many global static state variables and the initialization
     // must be thread-safe in order to work correctly. This is enforced here.
     static std::mutex mutex;
@@ -571,8 +569,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // first octave in the pyramid (which is the 'first_octave').
     const int compensation_factor = 1 << -std::min(0, options.first_octave);
     sift_gpu_args.push_back("-maxd");
-    sift_gpu_args.push_back(
-        std::to_string(options.max_image_size * compensation_factor));
+    sift_gpu_args.push_back(std::to_string(options.max_image_size * compensation_factor));
 
     // Keep the highest level features.
     sift_gpu_args.push_back("-tc2");
@@ -617,7 +614,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
     // Note that the SiftGPU object is not movable (for whatever reason).
     // If we instead create the object here and move it to the constructor, the
     // program segfaults inside SiftGPU.
-
+    //作者这里使用了sift GPU的三方库！！！
     extractor->sift_gpu_.ParseParam(sift_gpu_args_cstr.size(),
                                     sift_gpu_args_cstr.data());
 
@@ -626,14 +623,14 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
       sift_gpu_mutexes_.emplace(gpu_indices[0], std::make_unique<std::mutex>());
     }
 
-    if (extractor->sift_gpu_.VerifyContextGL() !=
-        SiftGPU::SIFTGPU_FULL_SUPPORTED) {
+    if (extractor->sift_gpu_.VerifyContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED) {
       return nullptr;
     }
 
     return extractor;
   }
 
+  //GPU版本的特征点提取和描述子计算
   bool Extract(const Bitmap& bitmap,
                FeatureKeypoints* keypoints,
                FeatureDescriptors* descriptors) override {
@@ -705,19 +702,18 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
 }  // namespace
 
-std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
-    const SiftExtractionOptions& options) {
-  if (options.estimate_affine_shape || options.domain_size_pooling ||
-      options.force_covariant_extractor) {
+std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(const SiftExtractionOptions& options) {
+  //默认应该是不会进这个条件的！
+  if (options.estimate_affine_shape || options.domain_size_pooling || options.force_covariant_extractor) {
     return CovariantSiftCPUFeatureExtractor::Create(options);
   } else if (options.use_gpu) {
 #if defined(COLMAP_GPU_ENABLED)
-    return SiftGPUFeatureExtractor::Create(options);
+    return SiftGPUFeatureExtractor::Create(options);//gpu版本sift提取算法
 #else
     return nullptr;
 #endif  // COLMAP_GPU_ENABLED
   } else {
-    return SiftCPUFeatureExtractor::Create(options);
+    return SiftCPUFeatureExtractor::Create(options);//cpu版本sift提取算法
   }
 }
 

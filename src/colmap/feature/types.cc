@@ -89,6 +89,7 @@ void FeatureKeypoint::Rescale(const float scale_x, const float scale_y) {
   a22 *= scale_y;
 }
 
+
 float FeatureKeypoint::ComputeScale() const {
   return (ComputeScaleX() + ComputeScaleY()) / 2.0f;
 }

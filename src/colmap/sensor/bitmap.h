@@ -193,7 +193,7 @@ class Bitmap {
   int width_;
   int height_;
   int channels_;
-};
+};//end class Bitmap
 
 // Jet colormap inspired by Matlab. Grayvalues are expected in the range [0, 1]
 // and are converted to RGB values in the same range.

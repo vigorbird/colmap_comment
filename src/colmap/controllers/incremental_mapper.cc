@@ -324,6 +324,7 @@ IncrementalMapperController::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     const std::shared_ptr<Reconstruction>& reconstruction) {
+      
   mapper.BeginReconstruction(reconstruction);
 
   ////////////////////////////////////////////////////////////////////////////

@@ -82,15 +82,16 @@ void MaskKeypoints(const Bitmap& mask,
   descriptors->conservativeResize(out_index, descriptors->cols());
 }
 
+//存储的是图像中的所有信息：内外参、特征点坐标和对应的描述子
 struct ImageData {
   ImageReader::Status status = ImageReader::Status::FAILURE;
 
-  Camera camera;
-  Image image;
+  Camera camera;//主要包含相机的内参信息
+  Image image;//搜索 class Image， 包含相机的外参
   Bitmap bitmap;
   Bitmap mask;
 
-  FeatureKeypoints keypoints;
+  FeatureKeypoints keypoints;//FeatureKeypoints = std::vector<FeatureKeypoint>，特征点存储的是xy坐标和仿射矩阵
   FeatureDescriptors descriptors;
 };
 
@@ -104,29 +105,26 @@ class ImageResizerThread : public Thread {
         output_queue_(output_queue) {}
 
  private:
+  //ImageResizerThrea Run函数
   void Run() override {
     while (true) {
       if (IsStopped()) {
         break;
       }
 
-      auto input_job = input_queue_->Pop();
+      auto input_job = input_queue_->Pop();//拿取数据！
       if (input_job.IsValid()) {
         auto& image_data = input_job.Data();
 
         if (image_data.status == ImageReader::Status::SUCCESS) {
+          //max_image_size_ = 设定的最大图像大小，3200是默认值
           if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
               static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
             // Fit the down-sampled version exactly into the max dimensions.
-            const double scale =
-                static_cast<double>(max_image_size_) /
-                std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
-            const int new_width =
-                static_cast<int>(image_data.bitmap.Width() * scale);
-            const int new_height =
-                static_cast<int>(image_data.bitmap.Height() * scale);
-
-            image_data.bitmap.Rescale(new_width, new_height);
+            const double scale = static_cast<double>(max_image_size_) / std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
+            const int new_width = static_cast<int>(image_data.bitmap.Width() * scale);
+            const int new_height = static_cast<int>(image_data.bitmap.Height() * scale);
+            image_data.bitmap.Rescale(new_width, new_height);//将图像进行resize！
           }
         }
 
@@ -135,7 +133,7 @@ class ImageResizerThread : public Thread {
         break;
       }
     }
-  }
+  }//end function Run
 
   const int max_image_size_;
 
@@ -163,6 +161,8 @@ class SiftFeatureExtractorThread : public Thread {
   }
 
  private:
+
+  //SiftFeatureExtractorThread Run函数
   void Run() override {
     if (sift_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
@@ -171,8 +171,7 @@ class SiftFeatureExtractorThread : public Thread {
 #endif
     }
 
-    std::unique_ptr<FeatureExtractor> extractor =
-        CreateSiftFeatureExtractor(sift_options_);
+    std::unique_ptr<FeatureExtractor> extractor =  CreateSiftFeatureExtractor(sift_options_);
     if (extractor == nullptr) {
       LOG(ERROR) << "Failed to create feature extractor.";
       SignalInvalidSetup();
@@ -191,24 +190,26 @@ class SiftFeatureExtractorThread : public Thread {
         auto& image_data = input_job.Data();
 
         if (image_data.status == ImageReader::Status::SUCCESS) {
+          //输入的是图像, 输出的是这个图像中的特征点和对应的像素坐标
           if (extractor->Extract(image_data.bitmap,
                                  &image_data.keypoints,
                                  &image_data.descriptors)) {
-            ScaleKeypoints(
-                image_data.bitmap, image_data.camera, &image_data.keypoints);
-            if (camera_mask_) {
-              MaskKeypoints(*camera_mask_,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
+              //如果图像被resize过，那么需要对提取的特征点同样进行resize
+              ScaleKeypoints(image_data.bitmap, image_data.camera, &image_data.keypoints);
+              //根据mask数据filter掉特征点和对应的描述子
+              if (camera_mask_) {
+                MaskKeypoints(*camera_mask_,
+                              &image_data.keypoints,
+                              &image_data.descriptors);
+              }
+              if (image_data.mask.Data()) {
+                MaskKeypoints(image_data.mask,
+                              &image_data.keypoints,
+                              &image_data.descriptors);
+              }
+            } else {
+              image_data.status = ImageReader::Status::FAILURE;
             }
-            if (image_data.mask.Data()) {
-              MaskKeypoints(image_data.mask,
-                            &image_data.keypoints,
-                            &image_data.descriptors);
-            }
-          } else {
-            image_data.status = ImageReader::Status::FAILURE;
-          }
         }
 
         image_data.bitmap.Deallocate();
@@ -353,6 +354,7 @@ class FeatureExtractorController : public Thread {
       }
     }
 
+    //如果用户没有设置希望运行的线程数，那么返回的就是系统的硬件线程个数
     const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
     THROW_CHECK_GT(num_threads, 0);
 
@@ -360,71 +362,75 @@ class FeatureExtractorController : public Thread {
     // avoid excess in memory usage since images and features take lots of
     // memory.
     const int kQueueSize = 1;
-    resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
+    //
+    resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);//ImageData包括的数据：内外参、特征点坐标和对应的描述子
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
 
+    //1.resizer多线程数量和cpu线程设置的大小相关
     if (sift_options_.max_image_size > 0) {
       for (int i = 0; i < num_threads; ++i) {
-        resizers_.emplace_back(
-            std::make_unique<ImageResizerThread>(sift_options_.max_image_size,
-                                                 resizer_queue_.get(),
-                                                 extractor_queue_.get()));
+        resizers_.emplace_back( std::make_unique<ImageResizerThread>(sift_options_.max_image_size,
+                                                                    resizer_queue_.get(),//这是resize功能的输入队列
+                                                                    extractor_queue_.get()));//这是resize功能的输出队列，也是extractor的输入队列
       }
     }
 
+    //2.extractors_多线程数量和cuda或者cpu线程设置相关。
+    //如果cuda被使能了则使用的是cuda
+    //如有cuda没有被使用则使用的是cpu线程设置相关。
     if (!sift_options_.domain_size_pooling &&
-        !sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
-      std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
-      THROW_CHECK_GT(gpu_indices.size(), 0);
+        !sift_options_.estimate_affine_shape && 
+        sift_options_.use_gpu) {
+          std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
+          THROW_CHECK_GT(gpu_indices.size(), 0);
 
-#if defined(COLMAP_CUDA_ENABLED)
-      if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
-        const int num_cuda_devices = GetNumCudaDevices();
-        THROW_CHECK_GT(num_cuda_devices, 0);
-        gpu_indices.resize(num_cuda_devices);
-        std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
-      }
-#endif  // COLMAP_CUDA_ENABLED
+    #if defined(COLMAP_CUDA_ENABLED)
+          if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+            const int num_cuda_devices = GetNumCudaDevices();
+            THROW_CHECK_GT(num_cuda_devices, 0);
+            gpu_indices.resize(num_cuda_devices);
+            std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
+          }
+    #endif  // COLMAP_CUDA_ENABLED
 
-      auto sift_gpu_options = sift_options_;
-      for (const auto& gpu_index : gpu_indices) {
-        sift_gpu_options.gpu_index = std::to_string(gpu_index);
-        extractors_.emplace_back(
-            std::make_unique<SiftFeatureExtractorThread>(sift_gpu_options,
-                                                         camera_mask,
-                                                         extractor_queue_.get(),
-                                                         writer_queue_.get()));
-      }
+          auto sift_gpu_options = sift_options_;
+          //使用的是cuda多核进行多线程
+          for (const auto& gpu_index : gpu_indices) {
+            sift_gpu_options.gpu_index = std::to_string(gpu_index);
+            extractors_.emplace_back( std::make_unique<SiftFeatureExtractorThread>(sift_gpu_options,
+                                                                                    camera_mask,
+                                                                                    extractor_queue_.get(),//extrator的输入队列
+                                                                                    writer_queue_.get()));//extractor的输出队列是序列化到硬盘中
+          }
     } else {
-      if (sift_options_.num_threads == -1 &&
-          sift_options_.max_image_size ==
-              SiftExtractionOptions().max_image_size &&
-          sift_options_.first_octave == SiftExtractionOptions().first_octave) {
-        LOG(WARNING)
-            << "Your current options use the maximum number of "
-               "threads on the machine to extract features. Extracting SIFT "
-               "features on the CPU can consume a lot of RAM per thread for "
-               "large images. Consider reducing the maximum image size and/or "
-               "the first octave or manually limit the number of extraction "
-               "threads. Ignore this warning, if your machine has sufficient "
-               "memory for the current settings.";
-      }
+        if (sift_options_.num_threads == -1 &&
+            sift_options_.max_image_size == SiftExtractionOptions().max_image_size &&
+            sift_options_.first_octave == SiftExtractionOptions().first_octave) {
+          LOG(WARNING)
+              << "Your current options use the maximum number of "
+                "threads on the machine to extract features. Extracting SIFT "
+                "features on the CPU can consume a lot of RAM per thread for "
+                "large images. Consider reducing the maximum image size and/or "
+                "the first octave or manually limit the number of extraction "
+                "threads. Ignore this warning, if your machine has sufficient "
+                "memory for the current settings.";
+        }
 
-      auto custom_sift_options = sift_options_;
-      custom_sift_options.use_gpu = false;
-      for (int i = 0; i < num_threads; ++i) {
-        extractors_.emplace_back(
-            std::make_unique<SiftFeatureExtractorThread>(custom_sift_options,
-                                                         camera_mask,
-                                                         extractor_queue_.get(),
-                                                         writer_queue_.get()));
-      }
+        //
+        auto custom_sift_options = sift_options_;
+        custom_sift_options.use_gpu = false;
+        //使用的cpu多核进行多线程
+        for (int i = 0; i < num_threads; ++i) {
+          extractors_.emplace_back( std::make_unique<SiftFeatureExtractorThread>(custom_sift_options,
+                                                                                camera_mask,
+                                                                                extractor_queue_.get(),
+                                                                                writer_queue_.get()));
+        }
     }
 
-    writer_ = std::make_unique<FeatureWriterThread>(
-        image_reader_.NumImages(), &database_, writer_queue_.get());
-  }
+    writer_ = std::make_unique<FeatureWriterThread>(image_reader_.NumImages(), &database_, writer_queue_.get());//非常重要！！！将特征点提取的结果序列化到硬盘！
+  }//end FeatureExtractorController构造函数！！！
 
  private:
   void Run() override {
@@ -433,11 +439,11 @@ class FeatureExtractorController : public Thread {
     run_timer.Start();
 
     for (auto& resizer : resizers_) {
-      resizer->Start();
+      resizer->Start();//对应调用的是 "ImageResizerThrea Run函数"
     }
 
     for (auto& extractor : extractors_) {
-      extractor->Start();
+      extractor->Start();//对应调用的是 "SiftFeatureExtractorThread Run函数"
     }
 
     writer_->Start();
@@ -447,6 +453,7 @@ class FeatureExtractorController : public Thread {
         return;
       }
     }
+
 
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
@@ -467,8 +474,9 @@ class FeatureExtractorController : public Thread {
         image_data.bitmap.Deallocate();
       }
 
+      //为了防止内存爆炸，所有的图像不能超过最大值，所有图像都需要resize
       if (sift_options_.max_image_size > 0) {
-        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));
+        THROW_CHECK(resizer_queue_->Push(std::move(image_data)));//非常重要的函数，向队列中推入数据
       } else {
         THROW_CHECK(extractor_queue_->Push(std::move(image_data)));
       }
@@ -491,7 +499,7 @@ class FeatureExtractorController : public Thread {
     writer_->Wait();
 
     run_timer.PrintMinutes();
-  }
+  }//end fucntion Run
 
   const ImageReaderOptions reader_options_;
   const SiftExtractionOptions sift_options_;

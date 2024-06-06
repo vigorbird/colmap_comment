@@ -56,7 +56,7 @@ struct FeatureKeypoint {
   void Rescale(float scale_x, float scale_y);
 
   // Compute shape parameters from affine shape.
-  float ComputeScale() const;
+  float ComputeScale() const;//xy两个方向
   float ComputeScaleX() const;
   float ComputeScaleY() const;
   float ComputeOrientation() const;
@@ -74,13 +74,10 @@ struct FeatureKeypoint {
   float a22;
 };
 
-typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptor;
+typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor> FeatureDescriptor;
 typedef std::vector<FeatureKeypoint> FeatureKeypoints;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptors;
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsFloat;
+typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> FeatureDescriptors;
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> FeatureDescriptorsFloat;
 
 struct FeatureMatch {
   FeatureMatch()

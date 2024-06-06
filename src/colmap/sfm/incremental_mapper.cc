@@ -104,8 +104,7 @@ IncrementalMapper::IncrementalMapper(
       num_total_reg_images_(0),
       num_shared_reg_images_(0) {}
 
-void IncrementalMapper::BeginReconstruction(
-    const std::shared_ptr<Reconstruction>& reconstruction) {
+void IncrementalMapper::BeginReconstruction(const std::shared_ptr<Reconstruction>& reconstruction) {
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
@@ -115,13 +114,13 @@ void IncrementalMapper::BeginReconstruction(
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
+  //image_t = uint32_t
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     RegisterImageEvent(image_id);
   }
 
-  existing_image_ids_ =
-      std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
-                                  reconstruction->RegImageIds().end());
+  existing_image_ids_ =  std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
+                                                     reconstruction->RegImageIds().end());
 
   filtered_images_.clear();
   num_reg_trials_.clear();
