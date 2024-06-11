@@ -186,7 +186,8 @@ class ExhaustiveFeatureMatcher : public Thread {
         matching_options_(matching_options),
         database_(database_path),
         cache_(5 * options_.block_size, &database_),
-        matcher_(matching_options, geometry_options, &database_, &cache_) {
+        matcher_(matching_options, geometry_options, &database_, &cache_) //非常重要的函数！！！！！！！构造了数据流的方向
+  {
     THROW_CHECK(options.Check());
     THROW_CHECK(matching_options.Check());
     THROW_CHECK(geometry_options.Check());
@@ -200,7 +201,8 @@ class ExhaustiveFeatureMatcher : public Thread {
     Timer run_timer;
     run_timer.Start();
 
-    //非常重要的函数！！！启动多个线程进行匹配业务的处理！！！！
+    //非常重要的函数！！！
+    //启动了matcher， verifier和 guided_matcher线程
     if (!matcher_.Setup()) {
       return;
     }
@@ -217,6 +219,7 @@ class ExhaustiveFeatureMatcher : public Thread {
     image_pairs.reserve(num_pairs_per_block);
 
     //难道这个部分不能进行加速么？？？？？
+    //答：这个循环只是向任务队列中塞数据，并不进行真实的匹配操作，匹配操作实际上会发生在matcher_变量中的线程里面
     for (size_t start_idx1 = 0; start_idx1 < image_ids.size(); start_idx1 += block_size) {
       const size_t end_idx1 = std::min(image_ids.size(), start_idx1 + block_size) - 1;
       for (size_t start_idx2 = 0; start_idx2 < image_ids.size(); start_idx2 += block_size) {

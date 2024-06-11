@@ -90,9 +90,8 @@ template <typename Estimator,
           typename SupportMeasurer,
           typename Sampler>
 typename LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Report
-LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
-    const std::vector<typename Estimator::X_t>& X,
-    const std::vector<typename Estimator::Y_t>& Y) {
+LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate( const std::vector<typename Estimator::X_t>& X,
+                                                                         const std::vector<typename Estimator::Y_t>& Y) {
   THROW_CHECK_EQ(X.size(), Y.size());
 
   const size_t num_samples = X.size();
@@ -126,13 +125,12 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
   sampler.Initialize(num_samples);
 
-  size_t max_num_trials =
-      std::min<size_t>(options_.max_num_trials, sampler.MaxNumSamples());
+  size_t max_num_trials =  std::min<size_t>(options_.max_num_trials, sampler.MaxNumSamples());
   size_t dyn_max_num_trials = max_num_trials;
   const size_t min_num_trials = options_.min_num_trials;
 
-  for (report.num_trials = 0; report.num_trials < max_num_trials;
-       ++report.num_trials) {
+  for (report.num_trials = 0; report.num_trials < max_num_trials;  ++report.num_trials) {
+
     if (abort) {
       report.num_trials += 1;
       break;
@@ -141,8 +139,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     sampler.SampleXY(X, Y, &X_rand, &Y_rand);
 
     // Estimate model for current subset.
-    estimator.Estimate(X_rand, Y_rand, &sample_models);
 
+    estimator.Estimate(X_rand, Y_rand, &sample_models);
     // Iterate through all estimated models
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
@@ -207,12 +205,10 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           }
         }
 
-        dyn_max_num_trials =
-            RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
-                best_support.num_inliers,
-                num_samples,
-                options_.confidence,
-                options_.dyn_num_trials_multiplier);
+        dyn_max_num_trials =  RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(best_support.num_inliers,
+                                                                                            num_samples,
+                                                                                            options_.confidence,
+                                                                                            options_.dyn_num_trials_multiplier);
       }
 
       if (report.num_trials >= dyn_max_num_trials &&
@@ -221,7 +217,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         break;
       }
     }
-  }
+  }//遍历完所有的for循环！！！！
 
   report.support = best_support;
   report.model = best_model;
@@ -251,6 +247,6 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   }
 
   return report;
-}
+}//end function Estimate!!!!!!!!!!!
 
 }  // namespace colmap

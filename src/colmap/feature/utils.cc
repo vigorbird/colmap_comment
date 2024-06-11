@@ -33,8 +33,8 @@
 
 namespace colmap {
 
-std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
-    const FeatureKeypoints& keypoints) {
+//将特征点的坐标提取出来
+std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(const FeatureKeypoints& keypoints) {
   std::vector<Eigen::Vector2d> points(keypoints.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
     points[i] = Eigen::Vector2d(keypoints[i].x, keypoints[i].y);

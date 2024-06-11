@@ -92,8 +92,7 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
   return images_cache_.at(image_id);
 }
 
-std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
-    const image_t image_id) {
+std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints( const image_t image_id) {
   std::lock_guard<std::mutex> lock(database_mutex_);
   return keypoints_cache_->Get(image_id);
 }
@@ -197,6 +196,7 @@ void FeatureMatcherWorker::SetMaxNumMatches(int max_num_matches) {
   matching_options_.max_num_matches = max_num_matches;
 }
 
+//
 void FeatureMatcherWorker::Run() {
   if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
@@ -205,8 +205,7 @@ void FeatureMatcherWorker::Run() {
 #endif
   }
 
-  std::unique_ptr<FeatureMatcher> matcher =
-      CreateSiftFeatureMatcher(matching_options_);
+  std::unique_ptr<FeatureMatcher> matcher =  CreateSiftFeatureMatcher(matching_options_);
   if (matcher == nullptr) {
     LOG(ERROR) << "Failed to create feature matcher.";
     SignalInvalidSetup();
@@ -229,7 +228,7 @@ void FeatureMatcherWorker::Run() {
         THROW_CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
-
+      //默认不进入这个条件
       if (matching_options_.guided_matching) {
         matcher->MatchGuided(geometry_options_,
                              GetKeypointsPtr(0, data.image_id1),
@@ -238,7 +237,8 @@ void FeatureMatcherWorker::Run() {
                              GetDescriptorsPtr(1, data.image_id2),
                              &data.two_view_geometry);
       } else {
-        matcher->Match(GetDescriptorsPtr(0, data.image_id1),
+        //非常核心的函数！！！！！！！！！！！！！！！！！！！！！！！！！！
+        matcher->Match(GetDescriptorsPtr(0, data.image_id1),//获取图像1的描述子
                        GetDescriptorsPtr(1, data.image_id2),
                        &data.matches);
       }
@@ -246,7 +246,7 @@ void FeatureMatcherWorker::Run() {
       THROW_CHECK(output_queue_->Push(std::move(data)));
     }
   }
-}
+}//FeatureMatcherWorker::run 结束
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherWorker::GetKeypointsPtr(
     const int index, const image_t image_id) {
@@ -261,8 +261,7 @@ std::shared_ptr<FeatureKeypoints> FeatureMatcherWorker::GetKeypointsPtr(
   }
 }
 
-std::shared_ptr<FeatureDescriptors> FeatureMatcherWorker::GetDescriptorsPtr(
-    const int index, const image_t image_id) {
+std::shared_ptr<FeatureDescriptors> FeatureMatcherWorker::GetDescriptorsPtr( const int index, const image_t image_id) {
   THROW_CHECK_GE(index, 0);
   THROW_CHECK_LE(index, 1);
   if (prev_descriptors_image_ids_[index] == image_id) {
@@ -293,6 +292,7 @@ class VerifierWorker : public Thread {
   }
 
  protected:
+  //VerifierWorker::Run函数
   void Run() override {
     while (true) {
       if (IsStopped()) {
@@ -303,30 +303,25 @@ class VerifierWorker : public Thread {
       if (input_job.IsValid()) {
         auto& data = input_job.Data();
 
-        if (data.matches.size() <
-            static_cast<size_t>(options_.min_num_inliers)) {
+        if (data.matches.size() < static_cast<size_t>(options_.min_num_inliers)) {
           THROW_CHECK(output_queue_->Push(std::move(data)));
           continue;
         }
 
-        const auto& camera1 =
-            cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
-        const auto& camera2 =
-            cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
+        const auto& camera1 = cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
+        const auto& camera2 = cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
         const auto keypoints1 = cache_->GetKeypoints(data.image_id1);
         const auto keypoints2 = cache_->GetKeypoints(data.image_id2);
-        const std::vector<Eigen::Vector2d> points1 =
-            FeatureKeypointsToPointsVector(*keypoints1);
-        const std::vector<Eigen::Vector2d> points2 =
-            FeatureKeypointsToPointsVector(*keypoints2);
+        const std::vector<Eigen::Vector2d> points1 = FeatureKeypointsToPointsVector(*keypoints1);
+        const std::vector<Eigen::Vector2d> points2 = FeatureKeypointsToPointsVector(*keypoints2);
 
-        data.two_view_geometry = EstimateTwoViewGeometry(
-            camera1, points1, camera2, points2, data.matches, options_);
+        //非常重要的函数！！！！！
+        data.two_view_geometry = EstimateTwoViewGeometry( camera1, points1, camera2, points2, data.matches, options_);
 
         THROW_CHECK(output_queue_->Push(std::move(data)));
       }
     }
-  }
+  }//end function Run
 
  private:
   const TwoViewGeometryOptions options_;
@@ -337,6 +332,7 @@ class VerifierWorker : public Thread {
 
 }  // namespace
 
+//非常重要的构造函数！里面构建了工作流！！！
 FeatureMatcherController::FeatureMatcherController(
     const SiftMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
@@ -353,6 +349,7 @@ FeatureMatcherController::FeatureMatcherController(
   const int num_threads = GetEffectiveNumThreads(matching_options_.num_threads);
   THROW_CHECK_GT(num_threads, 0);
 
+  //将输入的string转换成int
   std::vector<int> gpu_indices = CSVToVector<int>(matching_options_.gpu_index);
   THROW_CHECK_GT(gpu_indices.size(), 0);
 
@@ -366,6 +363,7 @@ FeatureMatcherController::FeatureMatcherController(
   }
 #endif  // COLMAP_CUDA_ENABLED
 
+  //构建原始特征点匹配数据流
   if (matching_options_.use_gpu) {
     auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
@@ -373,12 +371,11 @@ FeatureMatcherController::FeatureMatcherController(
     matchers_.reserve(gpu_indices.size());
     for (const auto& gpu_index : gpu_indices) {
       matching_options_copy.gpu_index = std::to_string(gpu_index);
-      matchers_.emplace_back(
-          std::make_unique<FeatureMatcherWorker>(matching_options_copy,
-                                                 geometry_options_,
-                                                 cache,
-                                                 &matcher_queue_,
-                                                 &verifier_queue_));
+      matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+                                                                    geometry_options_,
+                                                                    cache,
+                                                                    &matcher_queue_,
+                                                                    &verifier_queue_));
     }
   } else {
     auto matching_options_copy = matching_options_;
@@ -386,21 +383,23 @@ FeatureMatcherController::FeatureMatcherController(
     matching_options_copy.guided_matching = false;
     matchers_.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
-      matchers_.emplace_back(
-          std::make_unique<FeatureMatcherWorker>(matching_options_copy,
-                                                 geometry_options_,
-                                                 cache,
-                                                 &matcher_queue_,
-                                                 &verifier_queue_));
+      matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+                                                                    geometry_options_,
+                                                                    cache,
+                                                                    &matcher_queue_,
+                                                                    &verifier_queue_));
     }
   }
 
+  //构建verifier
   verifiers_.reserve(num_threads);
-  if (matching_options_.guided_matching) {
+  if (matching_options_.guided_matching) {//默认不进入这个条件
     // Redirect the verification output to final round of guided matching.
     for (int i = 0; i < num_threads; ++i) {
-      verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          geometry_options_, cache, &verifier_queue_, &guided_matcher_queue_));
+      verifiers_.emplace_back(std::make_unique<VerifierWorker>(   geometry_options_,
+                                                                  cache,
+                                                                  &verifier_queue_, 
+                                                                  &guided_matcher_queue_));
     }
 
     if (matching_options_.use_gpu) {
@@ -408,31 +407,33 @@ FeatureMatcherController::FeatureMatcherController(
       guided_matchers_.reserve(gpu_indices.size());
       for (const auto& gpu_index : gpu_indices) {
         matching_options_copy.gpu_index = std::to_string(gpu_index);
-        guided_matchers_.emplace_back(
-            std::make_unique<FeatureMatcherWorker>(matching_options_copy,
-                                                   geometry_options_,
-                                                   cache,
-                                                   &guided_matcher_queue_,
-                                                   &output_queue_));
+        guided_matchers_.emplace_back( std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+                                                                              geometry_options_,
+                                                                              cache,
+                                                                              &guided_matcher_queue_,
+                                                                              &output_queue_));
       }
     } else {
       guided_matchers_.reserve(num_threads);
       for (int i = 0; i < num_threads; ++i) {
-        guided_matchers_.emplace_back(
-            std::make_unique<FeatureMatcherWorker>(matching_options_,
-                                                   geometry_options_,
-                                                   cache,
-                                                   &guided_matcher_queue_,
-                                                   &output_queue_));
+        guided_matchers_.emplace_back( std::make_unique<FeatureMatcherWorker>(matching_options_,
+                                                                              geometry_options_,
+                                                                              cache,
+                                                                              &guided_matcher_queue_,
+                                                                              &output_queue_));
       }
     }
   } else {
+    //默认进入这个条件！
     for (int i = 0; i < num_threads; ++i) {
-      verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          geometry_options_, cache, &verifier_queue_, &output_queue_));
+      verifiers_.emplace_back(std::make_unique<VerifierWorker>( geometry_options_, 
+                                                                cache, 
+                                                                &verifier_queue_, 
+                                                                &output_queue_));
     }
   }
-}
+
+}//end FeatureMatcherController 构造函数 function!!!!
 
 FeatureMatcherController::~FeatureMatcherController() {
   matcher_queue_.Wait();
@@ -475,6 +476,7 @@ bool FeatureMatcherController::Setup() {
   // of descriptors for any image over the whole database.
   const int max_num_features = THROW_CHECK_NOTNULL(database_)->MaxNumKeypoints();
   matching_options_.max_num_matches = std::min(matching_options_.max_num_matches, max_num_features);
+  
 
   for (auto& matcher : matchers_) {
     matcher->SetMaxNumMatches(matching_options_.max_num_matches);
@@ -485,7 +487,7 @@ bool FeatureMatcherController::Setup() {
     verifier->Start();
   }
 
-  for (auto& guided_matcher : guided_matchers_) {
+  for (auto& guided_matcher :  ) {
     guided_matcher->SetMaxNumMatches(matching_options_.max_num_matches);
     guided_matcher->Start();
   }
@@ -508,7 +510,8 @@ bool FeatureMatcherController::Setup() {
 }
 
 
-//
+//作者将所有图像划分成了bolck，每个block中由若干个图像组成，输入的是block-block之间的图像匹配对
+//这个函数的主要作用是将要进行匹配和几何一致性校验的结果，压入到任务队列！！！！
 void FeatureMatcherController::Match(const std::vector<std::pair<image_t, image_t>>& image_pairs) {
   THROW_CHECK_NOTNULL(database_);
   THROW_CHECK_NOTNULL(cache_);
@@ -533,18 +536,17 @@ void FeatureMatcherController::Match(const std::vector<std::pair<image_t, image_
     }
 
     // Avoid duplicate image pairs.
-    const image_pair_t pair_id =
-        Database::ImagePairToPairId(image_pair.first, image_pair.second);
+    //将两个id拼接成一个id
+    const image_pair_t pair_id =  Database::ImagePairToPairId(image_pair.first, image_pair.second);
     if (image_pair_ids.count(pair_id) > 0) {
       continue;
     }
 
     image_pair_ids.insert(pair_id);
 
-    const bool exists_matches =
-        cache_->ExistsMatches(image_pair.first, image_pair.second);
-    const bool exists_inlier_matches =
-        cache_->ExistsInlierMatches(image_pair.first, image_pair.second);
+    //判断数据库中是否有两张图像的匹配结果
+    const bool exists_matches =  cache_->ExistsMatches(image_pair.first, image_pair.second);
+    const bool exists_inlier_matches = cache_->ExistsInlierMatches(image_pair.first, image_pair.second);
 
     if (exists_matches && exists_inlier_matches) {
       continue;
@@ -556,7 +558,7 @@ void FeatureMatcherController::Match(const std::vector<std::pair<image_t, image_
     // from scratch and delete the existing results. This must be done before
     // pushing the jobs to the queue, otherwise database constraints might fail
     // when writing an existing result into the database.
-
+    //从数据库中删除inliner匹配结果
     if (exists_inlier_matches) {
       cache_->DeleteInlierMatches(image_pair.first, image_pair.second);
     }
@@ -565,14 +567,15 @@ void FeatureMatcherController::Match(const std::vector<std::pair<image_t, image_
     data.image_id1 = image_pair.first;
     data.image_id2 = image_pair.second;
 
+    //如果数据库中存在匹配结果，那么删除匹配结果
     if (exists_matches) {
       data.matches = cache_->GetMatches(image_pair.first, image_pair.second);
       cache_->DeleteMatches(image_pair.first, image_pair.second);
-      THROW_CHECK(verifier_queue_.Push(std::move(data)));
+      THROW_CHECK(verifier_queue_.Push(std::move(data)));//非常重要的一句话，将要几何一致性的结果压入到任务队列中！！！！！！！！！！！！！！！！！！！！！！！！！！！
     } else {
-      THROW_CHECK(matcher_queue_.Push(std::move(data)));
+      THROW_CHECK(matcher_queue_.Push(std::move(data)));//非常重要的一句话，将要匹配的结果压入到任务队列中！！！！！！！！！！！！！！！！！！！！！！
     }
-  }
+  }//结束遍历所有的图像对！！！！
 
   //////////////////////////////////////////////////////////////////////////////
   // Write results to database
@@ -583,19 +586,19 @@ void FeatureMatcherController::Match(const std::vector<std::pair<image_t, image_
     THROW_CHECK(output_job.IsValid());
     auto& output = output_job.Data();
 
-    if (output.matches.size() <
-        static_cast<size_t>(geometry_options_.min_num_inliers)) {
+    //两张图像的原始特征点最小匹配数量应该大于15，否则直接清空所有的初始匹配结果
+    if (output.matches.size() <  static_cast<size_t>(geometry_options_.min_num_inliers)) {
       output.matches = {};
     }
 
-    if (output.two_view_geometry.inlier_matches.size() <
-        static_cast<size_t>(geometry_options_.min_num_inliers)) {
+    //如果经过几何一致性检测后，特征点的匹配数量小于15，那么两个图像的几何数据被新建一个
+    if (output.two_view_geometry.inlier_matches.size() < static_cast<size_t>(geometry_options_.min_num_inliers)) {
       output.two_view_geometry = TwoViewGeometry();
     }
 
+    //向硬盘写入匹配结果和两张图像几何结果
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
-    cache_->WriteTwoViewGeometry(
-        output.image_id1, output.image_id2, output.two_view_geometry);
+    cache_->WriteTwoViewGeometry(output.image_id1, output.image_id2, output.two_view_geometry);
   }
 
   THROW_CHECK_EQ(output_queue_.Size(), 0);

@@ -80,8 +80,7 @@ void BuildImageModel(const Image& image,
                              static_cast<float>(camera.width);
   const float image_extent = std::max(image_width, image_height);
   const float camera_extent = std::max(camera.width, camera.height);
-  const float camera_extent_normalized =
-      static_cast<float>(camera.CamFromImgThreshold(camera_extent));
+  const float camera_extent_normalized = static_cast<float>(camera.CamFromImgThreshold(camera_extent));
   const float focal_length = 2.0f * image_extent / camera_extent_normalized;
 
   const Eigen::Matrix<float, 3, 4> inv_proj_matrix =

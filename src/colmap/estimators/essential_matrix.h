@@ -64,6 +64,7 @@ class EssentialMatrixFivePointEstimator {
   // @param points2  Second set of corresponding points.
   //
   // @return         Up to 10 solutions as a vector of 3x3 essential matrices.
+  //搜索 EssentialMatrixFivePointEstimator::Estimate(
   static void Estimate(const std::vector<X_t>& points1,
                        const std::vector<Y_t>& points2,
                        std::vector<M_t>* models);

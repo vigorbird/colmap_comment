@@ -46,7 +46,7 @@ namespace colmap {
 struct FeatureMatcherData {
   image_t image_id1 = kInvalidImageId;
   image_t image_id2 = kInvalidImageId;
-  FeatureMatches matches;
+  FeatureMatches matches;//里面存储的是特征点坐标索引
   TwoViewGeometry two_view_geometry;
 };
 
@@ -90,7 +90,7 @@ class FeatureMatcherCache {
   std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>> descriptors_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
-};
+};//end class FeatureMatcherCache
 
 class FeatureMatcherWorker : public Thread {
  public:

@@ -47,10 +47,9 @@ class FeatureMatcher {
   // uploading data to GPU memory or pre-computing search data structures for
   // one of the descriptors.
 
-  virtual void Match(
-      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
-      FeatureMatches* matches) = 0;
+  virtual void Match(const std::shared_ptr<const FeatureDescriptors>& descriptors1,
+                    const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+                    FeatureMatches* matches) = 0;
 
   virtual void MatchGuided(
       const TwoViewGeometryOptions& options,

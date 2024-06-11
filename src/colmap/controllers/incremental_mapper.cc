@@ -532,6 +532,8 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
   }//end for 遍历次数！
 }//end function Reconstruct!!!
 
+
+
 void IncrementalMapperController::TriangulateReconstruction(
     const std::shared_ptr<Reconstruction>& reconstruction) {
   THROW_CHECK(LoadDatabase());

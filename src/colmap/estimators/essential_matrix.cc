@@ -148,7 +148,10 @@ void EssentialMatrixFivePointEstimator::Estimate(
             essential_vec.data());
     models->push_back(essential_matrix);
   }
-}
+}//end function EssentialMatrixFivePointEstimator
+
+
+
 
 void EssentialMatrixFivePointEstimator::Residuals(
     const std::vector<X_t>& points1,

@@ -149,6 +149,7 @@ TwoViewGeometry EstimateCalibratedHomography(
   return geometry;
 }
 
+//
 TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
@@ -156,8 +157,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
+
   TwoViewGeometry geometry;
 
+  //如果初始的匹配结果太少，直接返回
   const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
   if (matches.size() < static_cast<size_t>(min_num_inliers)) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
@@ -173,17 +176,14 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   }
 
   // Estimate epipolar model.
-
-  LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
-      F_ransac(options.ransac_options);
+  //使用ransac估计fundamental matrix和相机的内参有关
+  LORANSAC<FundamentalMatrixSevenPointEstimator, FundamentalMatrixEightPointEstimator>  F_ransac(options.ransac_options);
   const auto F_report = F_ransac.Estimate(matched_points1, matched_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
-
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  //使用ransac估计单应性矩阵
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac( options.ransac_options);
   const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
   geometry.H = H_report.model;
 
@@ -196,12 +196,11 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   // Determine inlier ratios of different models.
 
-  const double H_F_inlier_ratio =
-      static_cast<double>(H_report.support.num_inliers) /
-      F_report.support.num_inliers;
+  const double H_F_inlier_ratio =  static_cast<double>(H_report.support.num_inliers) / F_report.support.num_inliers;
 
   const std::vector<char>* best_inlier_mask = &F_report.inlier_mask;
   int num_inliers = F_report.support.num_inliers;
+  //如果单应性矩阵的inliner明显多于fundamental matrix，那么认为两个相机构建的几何约束关系是单应性矩阵
   if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
     if (H_report.support.num_inliers >= F_report.support.num_inliers) {
@@ -209,11 +208,11 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
       best_inlier_mask = &H_report.inlier_mask;
     }
   } else {
+    //否则认为这两个相机构建的约束几何关系是fundamental矩阵
     geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
   }
 
-  geometry.inlier_matches =
-      ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
+  geometry.inlier_matches =  ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
   if (options.detect_watermark && DetectWatermark(camera1,
                                                   matched_points1,
@@ -225,12 +224,15 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
   }
 
+  //默认不会进入这个条件
   if (options.compute_relative_pose) {
     EstimateTwoViewGeometryPose(camera1, points1, camera2, points2, &geometry);
   }
 
   return geometry;
-}
+}//end function EstimateUncalibratedTwoViewGeometry！！！！
+
+
 
 TwoViewGeometry EstimateMultipleTwoViewGeometries(
     const Camera& camera1,
@@ -301,27 +303,26 @@ bool TwoViewGeometryOptions::Check() const {
   return true;
 }
 
-TwoViewGeometry EstimateTwoViewGeometry(
-    const Camera& camera1,
-    const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2,
-    const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
-    const TwoViewGeometryOptions& options) {
+//Camera包含了数据结构 
+TwoViewGeometry EstimateTwoViewGeometry(const Camera& camera1,
+                                        const std::vector<Eigen::Vector2d>& points1,
+                                        const Camera& camera2,
+                                        const std::vector<Eigen::Vector2d>& points2,
+                                        const FeatureMatches& matches,
+                                        const TwoViewGeometryOptions& options) {
+  //默认multiple_models = false
   if (options.multiple_models) {
-    return EstimateMultipleTwoViewGeometries(
-        camera1, points1, camera2, points2, matches, options);
-  } else if (options.force_H_use) {
-    return EstimateCalibratedHomography(
-        camera1, points1, camera2, points2, matches, options);
+    return EstimateMultipleTwoViewGeometries( camera1, points1, camera2, points2, matches, options);
+  } else if (options.force_H_use) {//默认是false
+    return EstimateCalibratedHomography( camera1, points1, camera2, points2, matches, options);
   } else if (camera1.has_prior_focal_length && camera2.has_prior_focal_length) {
-    return EstimateCalibratedTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
+    //如果相机内参已知，用这个函数估计两个图像之间的相对位姿
+    return EstimateCalibratedTwoViewGeometry(camera1, points1, camera2, points2, matches, options);
   } else {
-    return EstimateUncalibratedTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
+    //如果相机内参未知，用这个函数估计两个图像之间的相对位姿
+    return EstimateUncalibratedTwoViewGeometry( camera1, points1, camera2, points2, matches, options);
   }
-}
+}//end function EstimateTwoViewGeometry
 
 bool EstimateTwoViewGeometryPose(const Camera& camera1,
                                  const std::vector<Eigen::Vector2d>& points1,
@@ -410,18 +411,18 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   return true;
 }
 
-TwoViewGeometry EstimateCalibratedTwoViewGeometry(
-    const Camera& camera1,
-    const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2,
-    const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
-    const TwoViewGeometryOptions& options) {
+//函数的变量全部是输入值
+TwoViewGeometry EstimateCalibratedTwoViewGeometry(  const Camera& camera1,//
+                                                    const std::vector<Eigen::Vector2d>& points1,
+                                                    const Camera& camera2,
+                                                    const std::vector<Eigen::Vector2d>& points2,
+                                                    const FeatureMatches& matches,
+                                                    const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
 
   TwoViewGeometry geometry;
 
-  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
+  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);//默认值等于15
   if (matches.size() < min_num_inliers) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
@@ -437,37 +438,34 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
-    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);
+    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);//根据像素坐标获取归一化坐标，对于针孔相机，归一化坐标的z轴等于1
     matched_points2_normalized[i] = camera2.CamFromImg(points2[idx2]);
   }
 
   // Estimate epipolar models.
 
   auto E_ransac_options = options.ransac_options;
-  E_ransac_options.max_error =
-      (camera1.CamFromImgThreshold(options.ransac_options.max_error) +
-       camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
-      2;
+  //max_error默认值等于2，CamFromImgThreshold函数作者这里考虑到了焦距对像素残差的影响
+  E_ransac_options.max_error =  (camera1.CamFromImgThreshold(options.ransac_options.max_error) +
+                                camera2.CamFromImgThreshold(options.ransac_options.max_error)) / 2;
 
-  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
-      E_ransac(E_ransac_options);
-  const auto E_report =
-      E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
+  //使用ransac计算essential matrix,只和R t相关
+  LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator> E_ransac(E_ransac_options);
+  const auto E_report = E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
   geometry.E = E_report.model;
 
-  LORANSAC<FundamentalMatrixSevenPointEstimator,
-           FundamentalMatrixEightPointEstimator>
-      F_ransac(options.ransac_options);
+  //使用ransac计算fundamental matrix，不仅和R t有关，还和内参相关
+  LORANSAC<FundamentalMatrixSevenPointEstimator, FundamentalMatrixEightPointEstimator> F_ransac(options.ransac_options);
   const auto F_report = F_ransac.Estimate(matched_points1, matched_points2);
   geometry.F = F_report.model;
 
   // Estimate planar or panoramic model.
-
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  //计算单应性矩阵，不仅和R t有关，还和内参相关
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(options.ransac_options);
   const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
   geometry.H = H_report.model;
 
+  //如果单应性矩阵、essential矩阵和fundamental矩阵都计算失败了，则返回失败
   if ((!E_report.success && !F_report.success && !H_report.success) ||
       (E_report.support.num_inliers < min_num_inliers &&
        F_report.support.num_inliers < min_num_inliers &&
@@ -478,19 +476,14 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
 
   // Determine inlier ratios of different models.
 
-  const double E_F_inlier_ratio =
-      static_cast<double>(E_report.support.num_inliers) /
-      F_report.support.num_inliers;
-  const double H_F_inlier_ratio =
-      static_cast<double>(H_report.support.num_inliers) /
-      F_report.support.num_inliers;
-  const double H_E_inlier_ratio =
-      static_cast<double>(H_report.support.num_inliers) /
-      E_report.support.num_inliers;
+  const double E_F_inlier_ratio = static_cast<double>(E_report.support.num_inliers) /  F_report.support.num_inliers;
+  const double H_F_inlier_ratio = static_cast<double>(H_report.support.num_inliers) /  F_report.support.num_inliers;
+  const double H_E_inlier_ratio = static_cast<double>(H_report.support.num_inliers) /  E_report.support.num_inliers;
 
   const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
+  //如果essential矩阵和fundamental矩阵得到的inliner相差较大并且essential的inliner也足够多，说明相机的内参是准确的。
   if (E_report.success && E_F_inlier_ratio > options.min_E_F_inlier_ratio &&
       E_report.support.num_inliers >= min_num_inliers) {
     // Calibrated configuration.
@@ -504,22 +497,25 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
       best_inlier_mask = &F_report.inlier_mask;
     }
 
-    if (H_E_inlier_ratio > options.max_H_inlier_ratio) {
+    //判断单应性矩阵的inliner是否和essential/fundamental的inliner相差很大，如果相差不大则认为则认为这两个相机构成的是平面单应性约
+    if (H_E_inlier_ratio > options.max_H_inlier_ratio) {//max_H_inlier_ratio = 0.8
       geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
       if (H_report.support.num_inliers > num_inliers) {
         num_inliers = H_report.support.num_inliers;
         best_inlier_mask = &H_report.inlier_mask;
       }
     } else {
+      //如果相差比较大则认为，相机标定的是准确的，直接可以使用essential matrix
       geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
     }
   } else if (F_report.success &&
              F_report.support.num_inliers >= min_num_inliers) {
     // Uncalibrated configuration.
-
+    //如果essential矩阵和fundamental矩阵相比inliner相差比较多 或者 essential的inliner比较小，并且fundamental的inliner也足够多
     num_inliers = F_report.support.num_inliers;
     best_inlier_mask = &F_report.inlier_mask;
 
+    //单应性矩阵的inliner和fundamental矩阵inliner相差比较小，则认为这两个相机构成的是平面单应性约束
     if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
       geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
       if (H_report.support.num_inliers > num_inliers) {
@@ -531,17 +527,19 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     }
   } else if (H_report.success &&
              H_report.support.num_inliers >= min_num_inliers) {
+    //如果essential矩阵和fundamental矩阵相比inliner相差比较小，或者 essential的inliner比较小，并且fundamental的inliner也很少，则认为这两个相机构成的是平面单应性约束
     num_inliers = H_report.support.num_inliers;
     best_inlier_mask = &H_report.inlier_mask;
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
   } else {
+    //如果
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
 
   if (best_inlier_mask != nullptr) {
-    geometry.inlier_matches =
-        ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
+    //提取出inliner
+    geometry.inlier_matches =   ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
     if (options.detect_watermark && DetectWatermark(camera1,
                                                     matched_points1,
@@ -553,14 +551,14 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
       geometry.config = TwoViewGeometry::ConfigurationType::WATERMARK;
     }
 
+    //默认不进入这个条件
     if (options.compute_relative_pose) {
-      EstimateTwoViewGeometryPose(
-          camera1, points1, camera2, points2, &geometry);
+      EstimateTwoViewGeometryPose( camera1, points1, camera2, points2, &geometry);
     }
   }
 
   return geometry;
-}
+}//end function EstimateCalibratedTwoViewGeometry
 
 bool DetectWatermark(const Camera& camera1,
                      const std::vector<Eigen::Vector2d>& points1,
@@ -608,9 +606,9 @@ bool DetectWatermark(const Camera& camera1,
     }
   }
 
-  const double matches_in_border_ratio =
-      static_cast<double>(num_matches_in_border) / num_inliers;
+  const double matches_in_border_ratio =  static_cast<double>(num_matches_in_border) / num_inliers;
 
+  //如果特征点在边缘比较少，那么直接不进行 后面的ransac检测了
   if (matches_in_border_ratio < options.watermark_min_inlier_ratio) {
     return false;
   }
@@ -620,14 +618,12 @@ bool DetectWatermark(const Camera& camera1,
   RANSACOptions ransac_options = options.ransac_options;
   ransac_options.min_inlier_ratio = options.watermark_min_inlier_ratio;
 
-  LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>>
-      ransac(ransac_options);
+  LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>> ransac(ransac_options);
   const auto report = ransac.Estimate(inlier_points1, inlier_points2);
 
-  const double inlier_ratio =
-      static_cast<double>(report.support.num_inliers) / num_inliers;
+  const double inlier_ratio = static_cast<double>(report.support.num_inliers) / num_inliers;
 
   return inlier_ratio >= options.watermark_min_inlier_ratio;
-}
+}//end function DetectWatermark
 
 }  // namespace colmap

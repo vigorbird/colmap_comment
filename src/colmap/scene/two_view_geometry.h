@@ -40,7 +40,7 @@ struct TwoViewGeometry {
   enum ConfigurationType {
     UNDEFINED = 0,
     // Degenerate configuration (e.g., no overlap or not enough inliers).
-    DEGENERATE = 1,
+    DEGENERATE = 1,//
     // Essential matrix.
     CALIBRATED = 2,
     // Fundamental matrix.
@@ -69,16 +69,16 @@ struct TwoViewGeometry {
   Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
 
   // Relative pose.
-  Rigid3d cam2_from_cam1;
+  Rigid3d cam2_from_cam1;//se3位姿矩阵
 
   // Inlier matches of the configuration.
-  FeatureMatches inlier_matches;
+  FeatureMatches inlier_matches;//存储的是匹配的特征点索引
 
   // Median triangulation angle.
   double tri_angle = -1;
 
   // Invert the geometry to match swapped cameras.
-  void Invert();
-};
+  void Invert();//
+};//end struct TwoViewGeometry
 
 }  // namespace colmap

@@ -65,8 +65,7 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
 
   // Estimate pose for given focal length.
   auto custom_options = options;
-  custom_options.max_error =
-      scaled_camera.CamFromImgThreshold(options.max_error);
+  custom_options.max_error = scaled_camera.CamFromImgThreshold(options.max_error);
   AbsolutePoseRANSAC ransac(custom_options);
   *report = ransac.Estimate(points2D_in_cam, points3D);
 }

@@ -648,8 +648,7 @@ void SimplePinholeCameraModel::ImgFromCam(
 }
 
 template <typename T>
-void SimplePinholeCameraModel::CamFromImg(
-    const T* params, const T x, const T y, T* u, T* v, T* w) {
+void SimplePinholeCameraModel::CamFromImg( const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -699,8 +698,7 @@ void PinholeCameraModel::ImgFromCam(
 }
 
 template <typename T>
-void PinholeCameraModel::CamFromImg(
-    const T* params, const T x, const T y, T* u, T* v, T* w) {
+void PinholeCameraModel::CamFromImg( const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1588,7 +1586,7 @@ double CameraModelCamFromImgThreshold(const CameraModelId model_id,
 
 #undef CAMERA_MODEL_CASE
   }
-
+  //搜索 T BaseCameraModel<CameraModel>::CamFromImgThreshold
   return -1;
 }
 

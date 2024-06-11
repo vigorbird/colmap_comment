@@ -32,7 +32,7 @@
 namespace colmap {
 
 void TwoViewGeometry::Invert() {
-  F.transposeInPlace();
+  F.transposeInPlace();//F是一个Eigen矩阵，直接对F进行转置操作速度更快
   E.transposeInPlace();
   H = H.inverse().eval();
   cam2_from_cam1 = Inverse(cam2_from_cam1);
