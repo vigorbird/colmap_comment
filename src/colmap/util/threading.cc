@@ -171,22 +171,20 @@ bool Thread::CheckValidSetup() {
 }
 
 void Thread::RunFunc() {
-  Callback(STARTED_CALLBACK);
-  Run();
+  Callback(STARTED_CALLBACK);//在执行核心业务函数之前，需要执行的函数，由用户注册进来
+  Run();//核心业务函数！
   {
     std::unique_lock<std::mutex> lock(mutex_);
     finished_ = true;
     timer_.Pause();
   }
-  Callback(FINISHED_CALLBACK);
+  Callback(FINISHED_CALLBACK);//在执行核心业务函数之后，需要执行的函数，由用户注册进来
 }
 
-ThreadPool::ThreadPool(const int num_threads)
-    : stopped_(false), num_active_workers_(0) {
+ThreadPool::ThreadPool(const int num_threads) : stopped_(false), num_active_workers_(0) {
   const int num_effective_threads = GetEffectiveNumThreads(num_threads);
   for (int index = 0; index < num_effective_threads; ++index) {
-    std::function<void(void)> worker =
-        std::bind(&ThreadPool::WorkerFunc, this, index);
+    std::function<void(void)> worker =  std::bind(&ThreadPool::WorkerFunc, this, index);
     workers_.emplace_back(worker);
   }
 }

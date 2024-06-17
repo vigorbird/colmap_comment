@@ -57,8 +57,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.AddAllOptions();
 
   *option_manager_.image_path = options_.image_path;
-  *option_manager_.database_path =
-      JoinPaths(options_.workspace_path, "database.db");
+  *option_manager_.database_path = JoinPaths(options_.workspace_path, "database.db");
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.ModifyForVideoData();
@@ -191,7 +190,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
     Database database(*option_manager_.database_path);
     const size_t num_images = database.NumImages();
     if (options_.vocab_tree_path.empty() || num_images < 200) {
-      matcher = exhaustive_matcher_.get();
+      matcher = exhaustive_matcher_.get();//确定使用哪种matcher！
     } else {
       matcher = vocab_tree_matcher_.get();
     }

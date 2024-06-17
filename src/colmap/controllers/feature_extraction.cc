@@ -105,7 +105,7 @@ class ImageResizerThread : public Thread {
         output_queue_(output_queue) {}
 
  private:
-  //ImageResizerThrea Run函数
+  //ImageResizerThread Run函数
   void Run() override {
     while (true) {
       if (IsStopped()) {
@@ -240,6 +240,7 @@ class FeatureWriterThread : public Thread {
         input_queue_(input_queue) {}
 
  private:
+  //FeatureWriterThread Run函数
   void Run() override {
     size_t image_index = 0;
     while (true) {
@@ -253,8 +254,7 @@ class FeatureWriterThread : public Thread {
 
         image_index += 1;
 
-        LOG(INFO) << StringPrintf(
-            "Processed file [%d/%d]", image_index, num_images_);
+        LOG(INFO) << StringPrintf("Processed file [%d/%d]", image_index, num_images_);
 
         LOG(INFO) << StringPrintf("  Name:            %s",
                                   image_data.image.Name().c_str());
@@ -263,16 +263,13 @@ class FeatureWriterThread : public Thread {
           LOG(INFO) << "  SKIP: Features for image already extracted.";
         } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
           LOG(ERROR) << "Failed to read image file format.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_SINGLE_DIM_ERROR) {
+        } else if (image_data.status == ImageReader::Status::CAMERA_SINGLE_DIM_ERROR) {
           LOG(ERROR) << "Single camera specified, "
                         "but images have different dimensions.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_EXIST_DIM_ERROR) {
+        } else if (image_data.status == ImageReader::Status::CAMERA_EXIST_DIM_ERROR) {
           LOG(ERROR) << "Image previously processed, but current image "
                         "has different dimensions.";
-        } else if (image_data.status ==
-                   ImageReader::Status::CAMERA_PARAM_ERROR) {
+        } else if (image_data.status == ImageReader::Status::CAMERA_PARAM_ERROR) {
           LOG(ERROR) << "Camera has invalid parameters.";
         } else if (image_data.status == ImageReader::Status::FAILURE) {
           LOG(ERROR) << "Failed to extract features.";
@@ -292,8 +289,9 @@ class FeatureWriterThread : public Thread {
             "  Focal Length:    %.2fpx%s",
             image_data.camera.MeanFocalLength(),
             image_data.camera.has_prior_focal_length ? " (Prior)" : "");
-        const Eigen::Vector3d& translation_prior =
-            image_data.image.CamFromWorldPrior().translation;
+
+        const Eigen::Vector3d& translation_prior = image_data.image.CamFromWorldPrior().translation;
+
         if (translation_prior.array().isFinite().any()) {
           LOG(INFO) << StringPrintf(
               "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
@@ -362,7 +360,6 @@ class FeatureExtractorController : public Thread {
     // avoid excess in memory usage since images and features take lots of
     // memory.
     const int kQueueSize = 1;
-    //
     resizer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);//ImageData包括的数据：内外参、特征点坐标和对应的描述子
     extractor_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
     writer_queue_ = std::make_unique<JobQueue<ImageData>>(kQueueSize);
@@ -370,6 +367,7 @@ class FeatureExtractorController : public Thread {
     //1.resizer多线程数量和cpu线程设置的大小相关
     if (sift_options_.max_image_size > 0) {
       for (int i = 0; i < num_threads; ++i) {
+        //resizers_ = std::vector<std::unique_ptr<Thread>>
         resizers_.emplace_back( std::make_unique<ImageResizerThread>(sift_options_.max_image_size,
                                                                     resizer_queue_.get(),//这是resize功能的输入队列
                                                                     extractor_queue_.get()));//这是resize功能的输出队列，也是extractor的输入队列
@@ -437,16 +435,16 @@ class FeatureExtractorController : public Thread {
     PrintHeading1("Feature extraction");
     Timer run_timer;
     run_timer.Start();
-
+    //启动线程
     for (auto& resizer : resizers_) {
-      resizer->Start();//对应调用的是 "ImageResizerThrea Run函数"
+      resizer->Start();//对应调用的是 "ImageResizerThread Run函数"
     }
 
     for (auto& extractor : extractors_) {
       extractor->Start();//对应调用的是 "SiftFeatureExtractorThread Run函数"
     }
 
-    writer_->Start();
+    writer_->Start();//对应调用的是 "FeatureWriterThread Run函数"
 
     for (auto& extractor : extractors_) {
       if (!extractor->CheckValidSetup()) {
@@ -454,7 +452,7 @@ class FeatureExtractorController : public Thread {
       }
     }
 
-
+    //从硬盘中读取数据
     while (image_reader_.NextIndex() < image_reader_.NumImages()) {
       if (IsStopped()) {
         resizer_queue_->Stop();

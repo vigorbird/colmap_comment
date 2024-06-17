@@ -102,9 +102,8 @@ class AutomaticReconstructionController : public Thread {
     std::string gpu_index = "-1";
   };
 
-  AutomaticReconstructionController(
-      const Options& options,
-      std::shared_ptr<ReconstructionManager> reconstruction_manager);
+  AutomaticReconstructionController( const Options& options,
+                                    std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
   void Stop() override;
 
@@ -113,7 +112,7 @@ class AutomaticReconstructionController : public Thread {
   void RunFeatureExtraction();//搜索 AutomaticReconstructionController::RunFeatureExtraction()
   void RunFeatureMatching();// 搜索 AutomaticReconstructionController::RunFeatureMatching()
   void RunSparseMapper();//搜索 AutomaticReconstructionController::RunSparseMapper()
-  void RunDenseMapper();
+  void RunDenseMapper();//这个是和稠密重建相关的，我们暂时不关心
 
   const Options options_;
   OptionManager option_manager_;

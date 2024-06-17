@@ -203,6 +203,7 @@ class ExhaustiveFeatureMatcher : public Thread {
 
     //非常重要的函数！！！
     //启动了matcher， verifier和 guided_matcher线程
+    //
     if (!matcher_.Setup()) {
       return;
     }
@@ -237,8 +238,7 @@ class ExhaustiveFeatureMatcher : public Thread {
                                   start_idx1 / block_size + 1,
                                   num_blocks,
                                   start_idx2 / block_size + 1,
-                                  num_blocks)
-                  << std::flush;
+                                  num_blocks)  << std::flush;
 
         image_pairs.clear();
         //两个block之间所有的图像进行匹配！！！！

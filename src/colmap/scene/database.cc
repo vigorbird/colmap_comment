@@ -683,24 +683,19 @@ image_t Database::WriteImage(const Image& image,
       sql_stmt_add_image_, 4, image.CamFromWorldPrior().rotation.w()));
   SQLITE3_CALL(sqlite3_bind_double(
       sql_stmt_add_image_, 5, image.CamFromWorldPrior().rotation.x()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 6, image.CamFromWorldPrior().rotation.y()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 7, image.CamFromWorldPrior().rotation.z()));
+  SQLITE3_CALL(sqlite3_bind_double( sql_stmt_add_image_, 6, image.CamFromWorldPrior().rotation.y()));
+  SQLITE3_CALL(sqlite3_bind_double( sql_stmt_add_image_, 7, image.CamFromWorldPrior().rotation.z()));
 
   // NaNs are automatically converted to NULLs in SQLite.
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 8, image.CamFromWorldPrior().translation.x()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 9, image.CamFromWorldPrior().translation.y()));
-  SQLITE3_CALL(sqlite3_bind_double(
-      sql_stmt_add_image_, 10, image.CamFromWorldPrior().translation.z()));
+  SQLITE3_CALL(sqlite3_bind_double( sql_stmt_add_image_, 8, image.CamFromWorldPrior().translation.x()));
+  SQLITE3_CALL(sqlite3_bind_double( sql_stmt_add_image_, 9, image.CamFromWorldPrior().translation.y()));
+  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 10, image.CamFromWorldPrior().translation.z()));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_add_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_add_image_));
 
   return static_cast<image_t>(sqlite3_last_insert_rowid(database_));
-}
+}//end function WriteImage
 
 void Database::WriteKeypoints(const image_t image_id,
                               const FeatureKeypoints& keypoints) const {

@@ -129,6 +129,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   } else {
     //我个人人为直接看这个条件就行！
     //构造函数很重要！！！！里面设定了各个模块的运行函数！！！搜索 "AutomaticReconstructionController构造函数"
+    //下面这个数据类型继承自作者自己写的thread类
     AutomaticReconstructionController controller(reconstruction_options,
                                                  reconstruction_manager);
     controller.Start();//里面会启动线程！本质上是调用了 “AutomaticReconstructionController::Run() { ”函数
