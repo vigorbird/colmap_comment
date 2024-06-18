@@ -118,8 +118,7 @@ TwoViewGeometry EstimateCalibratedHomography(
 
   // Estimate planar or panoramic model.
 
-  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
-      options.ransac_options);
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac( options.ransac_options);
   const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
   geometry.H = H_report.model;
 
@@ -130,8 +129,7 @@ TwoViewGeometry EstimateCalibratedHomography(
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
   }
 
-  geometry.inlier_matches = ExtractInlierMatches(
-      matches, H_report.support.num_inliers, H_report.inlier_mask);
+  geometry.inlier_matches = ExtractInlierMatches( matches, H_report.support.num_inliers, H_report.inlier_mask);
   if (options.detect_watermark && DetectWatermark(camera1,
                                                   matched_points1,
                                                   camera2,
@@ -214,6 +212,7 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
 
   geometry.inlier_matches =  ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
+  //默认会进入这个条件！
   if (options.detect_watermark && DetectWatermark(camera1,
                                                   matched_points1,
                                                   camera2,
@@ -483,7 +482,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(  const Camera& camera1,//
   const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
-  //如果essential矩阵和fundamental矩阵得到的inliner相差较大并且essential的inliner也足够多，说明相机的内参是准确的。
+  //如果essential矩阵和fundamental矩阵得到的inliner相差较大并且essential矩阵对应的inliner也足够多，说明相机的内参是准确的。
+  //min_E_F_inlier_ratio默认值 = 0.95
   if (E_report.success && E_F_inlier_ratio > options.min_E_F_inlier_ratio &&
       E_report.support.num_inliers >= min_num_inliers) {
     // Calibrated configuration.
@@ -498,7 +498,8 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(  const Camera& camera1,//
     }
 
     //判断单应性矩阵的inliner是否和essential/fundamental的inliner相差很大，如果相差不大则认为则认为这两个相机构成的是平面单应性约
-    if (H_E_inlier_ratio > options.max_H_inlier_ratio) {//max_H_inlier_ratio = 0.8
+    //max_H_inlier_ratio = 0.8
+    if (H_E_inlier_ratio > options.max_H_inlier_ratio) {
       geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
       if (H_report.support.num_inliers > num_inliers) {
         num_inliers = H_report.support.num_inliers;
@@ -564,7 +565,7 @@ bool DetectWatermark(const Camera& camera1,
                      const std::vector<Eigen::Vector2d>& points1,
                      const Camera& camera2,
                      const std::vector<Eigen::Vector2d>& points2,
-                     const size_t num_inliers,
+                     const size_t num_inliers,//essential, fundamental 或者 单应性矩阵对应的最大inliner
                      const std::vector<char>& inlier_mask,
                      const TwoViewGeometryOptions& options) {
   THROW_CHECK(options.Check());
@@ -598,7 +599,7 @@ bool DetectWatermark(const Camera& camera1,
       inlier_points1[j] = point1;
       inlier_points2[j] = point2;
       j += 1;
-
+      //表示匹配的点都在边缘
       if (!IsImagePointInBoundingBox(point1, minx1, maxx1, miny1, maxy1) &&
           !IsImagePointInBoundingBox(point2, minx2, maxx2, miny2, maxy2)) {
         num_matches_in_border += 1;
@@ -608,7 +609,7 @@ bool DetectWatermark(const Camera& camera1,
 
   const double matches_in_border_ratio =  static_cast<double>(num_matches_in_border) / num_inliers;
 
-  //如果特征点在边缘比较少，那么直接不进行 后面的ransac检测了
+  //如果特征点在边缘的个数/（essential, fundamental 或者 单应性矩阵对应的最大inliner） 比较少，那么直接不进行 后面的ransac检测了
   if (matches_in_border_ratio < options.watermark_min_inlier_ratio) {
     return false;
   }
@@ -620,7 +621,7 @@ bool DetectWatermark(const Camera& camera1,
 
   LORANSAC<TranslationTransformEstimator<2>, TranslationTransformEstimator<2>> ransac(ransac_options);
   const auto report = ransac.Estimate(inlier_points1, inlier_points2);
-
+  //只估计位置移动的inliner 除以 fundamental/单应性矩阵 最大的inliner
   const double inlier_ratio = static_cast<double>(report.support.num_inliers) / num_inliers;
 
   return inlier_ratio >= options.watermark_min_inlier_ratio;

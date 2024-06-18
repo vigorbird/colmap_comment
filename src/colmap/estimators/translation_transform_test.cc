@@ -66,8 +66,7 @@ TEST(TranslationTransform, Estimate) {
   EXPECT_NEAR(translation(1), estimated_translation(1), 1e-6);
 
   std::vector<double> residuals;
-  TranslationTransformEstimator<2>::Residuals(
-      src, dst, estimated_translation, &residuals);
+  TranslationTransformEstimator<2>::Residuals( src, dst, estimated_translation, &residuals);
 
   for (size_t i = 0; i < residuals.size(); ++i) {
     EXPECT_TRUE(residuals[i] < 1e-6);

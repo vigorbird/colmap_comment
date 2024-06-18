@@ -198,6 +198,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 
   THROW_CHECK_NOTNULL(matcher);
   active_thread_ = matcher;
+  //搜索 ExhaustiveFeatureMatcher Run
   matcher->Start();//非常重要的函数！！！！对应的是各个不同matcher类的Run函数！！！！！！！！
   matcher->Wait();
   exhaustive_matcher_.reset();

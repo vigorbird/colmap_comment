@@ -203,11 +203,12 @@ class ExhaustiveFeatureMatcher : public Thread {
 
     //非常重要的函数！！！
     //启动了matcher， verifier和 guided_matcher线程
-    //
+    //搜索 FeatureMatcherController::Setup()
     if (!matcher_.Setup()) {
       return;
     }
 
+    //搜索 FeatureMatcherCache::Setup()
     cache_.Setup();//应该是读取特征点匹配的数据！
 
     const std::vector<image_t> image_ids = cache_.GetImageIds();
@@ -266,8 +267,8 @@ class ExhaustiveFeatureMatcher : public Thread {
   const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
-  FeatureMatcherController matcher_;
-};
+  FeatureMatcherController matcher_; //搜索 FeatureMatcherController 构造函数
+};//end class ExhaustiveFeatureMatcher
 
 }  // namespace
 

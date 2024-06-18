@@ -119,6 +119,7 @@ class AutomaticReconstructionController : public Thread {
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   Thread* active_thread_;
   std::unique_ptr<Thread> feature_extractor_;//搜索 FeatureExtractorController
+  //很多种匹配方法
   std::unique_ptr<Thread> exhaustive_matcher_;//搜索 ExhaustiveFeatureMatcher
   std::unique_ptr<Thread> sequential_matcher_;
   std::unique_ptr<Thread> vocab_tree_matcher_;

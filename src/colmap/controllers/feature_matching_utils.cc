@@ -59,29 +59,22 @@ void FeatureMatcherCache::Setup() {
     images_cache_.emplace(image.ImageId(), std::move(image));
   }
 
-  keypoints_cache_ =
-      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>(
-          cache_size_, [this](const image_t image_id) {
-            return std::make_shared<FeatureKeypoints>(
-                database_->ReadKeypoints(image_id));
-          });
+  keypoints_cache_ = std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>(cache_size_, 
+                                                                                            [this](const image_t image_id) {return std::make_shared<FeatureKeypoints>(database_->ReadKeypoints(image_id));}
+                                                                                            );
 
   descriptors_cache_ =
-      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>(
-          cache_size_, [this](const image_t image_id) {
-            return std::make_shared<FeatureDescriptors>(
-                database_->ReadDescriptors(image_id));
-          });
+      std::make_unique<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>(cache_size_, 
+                                                                              [this](const image_t image_id) {return std::make_shared<FeatureDescriptors>(database_->ReadDescriptors(image_id));}
+                                                                              );
 
-  keypoints_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
-      images_cache_.size(), [this](const image_t image_id) {
-        return database_->ExistsKeypoints(image_id);
-      });
+  keypoints_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>( images_cache_.size(), 
+                                                                      [this](const image_t image_id) { return database_->ExistsKeypoints(image_id);}
+                                                                      );
 
-  descriptors_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
-      images_cache_.size(), [this](const image_t image_id) {
-        return database_->ExistsDescriptors(image_id);
-      });
+  descriptors_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(images_cache_.size(), 
+                                                                        [this](const image_t image_id) { return database_->ExistsDescriptors(image_id);}
+                                                                        );
 }//end function  FeatureMatcherCache::Setup()
 
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
@@ -238,6 +231,7 @@ void FeatureMatcherWorker::Run() {
                              &data.two_view_geometry);
       } else {
         //非常核心的函数！！！！！！！！！！！！！！！！！！！！！！！！！！
+        //搜索 SiftCPUFeatureMatcher::Match 函数
         matcher->Match(GetDescriptorsPtr(0, data.image_id1),//获取图像1的描述子
                        GetDescriptorsPtr(1, data.image_id2),
                        &data.matches);
@@ -333,6 +327,7 @@ class VerifierWorker : public Thread {
 }  // namespace
 
 //非常重要的构造函数！里面构建了工作流！！！
+//FeatureMatcherController 构造函数
 FeatureMatcherController::FeatureMatcherController(
     const SiftMatchingOptions& matching_options,
     const TwoViewGeometryOptions& geometry_options,
@@ -354,8 +349,7 @@ FeatureMatcherController::FeatureMatcherController(
   THROW_CHECK_GT(gpu_indices.size(), 0);
 
 #if defined(COLMAP_CUDA_ENABLED)
-  if (matching_options_.use_gpu && gpu_indices.size() == 1 &&
-      gpu_indices[0] == -1) {
+  if (matching_options_.use_gpu && gpu_indices.size() == 1 && gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
     THROW_CHECK_GT(num_cuda_devices, 0);
     gpu_indices.resize(num_cuda_devices);
@@ -365,6 +359,7 @@ FeatureMatcherController::FeatureMatcherController(
 
   //构建原始特征点匹配数据流
   if (matching_options_.use_gpu) {
+    //gpu匹配
     auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
     matching_options_copy.guided_matching = false;
@@ -378,6 +373,7 @@ FeatureMatcherController::FeatureMatcherController(
                                                                     &verifier_queue_));
     }
   } else {
+    //cpu匹配
     auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
     matching_options_copy.guided_matching = false;

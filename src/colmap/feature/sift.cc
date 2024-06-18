@@ -848,12 +848,15 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
   return dists;
 }
 
+//end function FindNearestNeighborsFlann
+//为图像b中的每个描述子计算图像a中的哪两个描述子距离最近，并计算两个距离保存到distances中
 void FindNearestNeighborsFlann(
-    const FeatureDescriptors& query,
-    const FeatureDescriptors& index,
-    const flann::Index<flann::L2<uint8_t>>& flann_index,
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>* indices,
-    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>* distances) {
+    const FeatureDescriptors& query,//图像b的描述子
+    const FeatureDescriptors& index,//图像a的描述子
+    const flann::Index<flann::L2<uint8_t>>& flann_index,//图像a的描述子建立的flann索引
+    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>* indices,//返回的匹配结果，大小等于图像b描述子的大小，里面存储的数值是图像a描述子的索引
+    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>* distances) //返回的描述子距离
+{
 
   if (query.rows() == 0 || index.rows() == 0) {
     return;
@@ -896,6 +899,7 @@ size_t FindBestMatchesOneWayFLANN(const Eigen::Matrix<int, Eigen::Dynamic, Eigen
   size_t num_matches = 0;
   matches->resize(indices.rows(), -1);
 
+  //默认每个特征点会有两个候选匹配特征点
   for (int d1_idx = 0; d1_idx < indices.rows(); ++d1_idx) {
     int best_i2 = -1;
     int best_dist = 0;
@@ -917,19 +921,19 @@ size_t FindBestMatchesOneWayFLANN(const Eigen::Matrix<int, Eigen::Dynamic, Eigen
       continue;
     }
 
-    const float best_dist_normed =
-        std::acos(std::min(kDistNorm * best_dist, 1.0f));
+    const float best_dist_normed =  std::acos(std::min(kDistNorm * best_dist, 1.0f));
 
     // Check if match distance passes threshold.
+    //描述子的距离足够小才行 
     if (best_dist_normed > max_distance) {
       continue;
     }
 
-    const float second_best_dist_normed =
-        std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
+    const float second_best_dist_normed =  std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
 
     // Check if match passes ratio test. Keep this comparison >= in order to
     // ensure that the case of best == second_best is detected.
+    //第一个得分要比第二个得分高很多才行
     if (best_dist_normed >= max_ratio * second_best_dist_normed) {
       continue;
     }
@@ -941,14 +945,14 @@ size_t FindBestMatchesOneWayFLANN(const Eigen::Matrix<int, Eigen::Dynamic, Eigen
   return num_matches;
 }//end function FindBestMatchesOneWayFLANN
 
-void FindBestMatchesFlann( const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices_1to2,
-                           const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances_1to2,
-                           const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices_2to1,
-                           const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances_2to1,
-                          const float max_ratio,
-                          const float max_distance,
-                          const bool cross_check,
-                          FeatureMatches* matches) {
+void FindBestMatchesFlann( const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices_1to2,//input
+                           const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances_1to2,//input
+                           const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices_2to1,//input
+                           const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances_2to1,//input
+                          const float max_ratio,//input
+                          const float max_distance,//input
+                          const bool cross_check,//input
+                          FeatureMatches* matches) {//only output
   matches->clear();
 
   std::vector<int> matches12;
@@ -997,9 +1001,9 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   }
 
   //这个函数是复写父类的纯虚函数方法
-  //SiftCPUFeatureMatcher::Match函数
-  void Match(const std::shared_ptr<const FeatureDescriptors>& descriptors1,
-             const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+  //SiftCPUFeatureMatcher::Match 函数
+  void Match(const std::shared_ptr<const FeatureDescriptors>& descriptors1,//输入
+             const std::shared_ptr<const FeatureDescriptors>& descriptors2,//输入
              FeatureMatches* matches) override {
     THROW_CHECK_NOTNULL(matches);
     matches->clear();
@@ -1054,9 +1058,10 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
                                 &distances_2to1);
     }
     
-    FindBestMatchesFlann(indices_1to2,
+    //3.根据两张图像
+    FindBestMatchesFlann(indices_1to2,//图像1每个特征点和图像2特征点匹配的结果
                          distances_1to2,
-                         indices_2to1,
+                         indices_2to1,//图像2每个特征点和图像1特征点匹配的结果
                          distances_2to1,
                          options_.max_ratio,
                          options_.max_distance,
