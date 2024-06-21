@@ -37,9 +37,10 @@
 
 namespace colmap {
 
-Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
-                                 const Eigen::Matrix3x4d& cam2_from_world,
-                                 const Eigen::Vector2d& point1,
+//详见算法实现文档
+Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,//相机1的位姿
+                                 const Eigen::Matrix3x4d& cam2_from_world,//相机2的位姿
+                                 const Eigen::Vector2d& point1,//对应的normalized坐标
                                  const Eigen::Vector2d& point2) {
   Eigen::Matrix4d A;
 
@@ -53,6 +54,7 @@ Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,
   return svd.matrixV().col(3).hnormalized();
 }
 
+//三角化 两帧共视的多个特征点
 std::vector<Eigen::Vector3d> TriangulatePoints(
     const Eigen::Matrix3x4d& cam1_from_world,
     const Eigen::Matrix3x4d& cam2_from_world,
@@ -63,8 +65,7 @@ std::vector<Eigen::Vector3d> TriangulatePoints(
   std::vector<Eigen::Vector3d> points3D(points1.size());
 
   for (size_t i = 0; i < points3D.size(); ++i) {
-    points3D[i] = TriangulatePoint(
-        cam1_from_world, cam2_from_world, points1[i], points2[i]);
+    points3D[i] = TriangulatePoint( cam1_from_world, cam2_from_world, points1[i], points2[i]);
   }
 
   return points3D;
@@ -127,11 +128,11 @@ std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
   return points3D;
 }
 
+//详见算法实现文档！
 double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
                                    const Eigen::Vector3d& proj_center2,
                                    const Eigen::Vector3d& point3D) {
-  const double baseline_length_squared =
-      (proj_center1 - proj_center2).squaredNorm();
+  const double baseline_length_squared =  (proj_center1 - proj_center2).squaredNorm();
 
   const double ray_length_squared1 = (point3D - proj_center1).squaredNorm();
   const double ray_length_squared2 = (point3D - proj_center2).squaredNorm();
@@ -142,8 +143,7 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   if (denominator == 0.0) {
     return 0.0;
   }
-  const double nominator =
-      ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
+  const double nominator =  ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
   const double angle = std::abs(std::acos(nominator / denominator));
 
   // Triangulation is unstable for acute angles (far away points) and
@@ -152,32 +152,32 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   return std::min(angle, M_PI - angle);
 }
 
+//points3D是两个图像三角化出来的点
+//计算所有三角化的点的所有夹角
+//详见算法实现文档
 std::vector<double> CalculateTriangulationAngles(
     const Eigen::Vector3d& proj_center1,
     const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D) {
+
   // Baseline length between camera centers.
-  const double baseline_length_squared =
-      (proj_center1 - proj_center2).squaredNorm();
+  //两个相机之间的距离
+  const double baseline_length_squared = (proj_center1 - proj_center2).squaredNorm();
 
   std::vector<double> angles(points3D.size());
 
   for (size_t i = 0; i < points3D.size(); ++i) {
     // Ray lengths from cameras to point.
-    const double ray_length_squared1 =
-        (points3D[i] - proj_center1).squaredNorm();
-    const double ray_length_squared2 =
-        (points3D[i] - proj_center2).squaredNorm();
+    const double ray_length_squared1 =  (points3D[i] - proj_center1).squaredNorm();
+    const double ray_length_squared2 =  (points3D[i] - proj_center2).squaredNorm();
 
     // Using "law of cosines" to compute the enclosing angle between rays.
-    const double denominator =
-        2.0 * std::sqrt(ray_length_squared1 * ray_length_squared2);
+    const double denominator = 2.0 * std::sqrt(ray_length_squared1 * ray_length_squared2);
     if (denominator == 0.0) {
       angles[i] = 0.0;
       continue;
     }
-    const double nominator =
-        ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
+    const double nominator =  ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
     const double angle = std::abs(std::acos(nominator / denominator));
 
     // Triangulation is unstable for acute angles (far away points) and

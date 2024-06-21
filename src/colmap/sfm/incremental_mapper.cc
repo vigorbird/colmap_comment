@@ -42,8 +42,9 @@
 namespace colmap {
 namespace {
 
-void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
-                             std::vector<image_t>* sorted_images_ids) {
+//image_ranks排序然后将排序结果放给sorted_images_ids，根据second中的数据进行降序排序
+void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,//in output
+                             std::vector<image_t>* sorted_images_ids) {//in out
   std::sort(image_ranks.begin(),
             image_ranks.end(),
             [](const std::pair<image_t, float>& image1,
@@ -69,7 +70,7 @@ float RankNextImageMaxVisiblePointsRatio(const Image& image) {
 }
 
 float RankNextImageMinUncertainty(const Image& image) {
-  return static_cast<float>(image.Point3DVisibilityScore());
+  return static_cast<float>(image.Point3DVisibilityScore());//对应论文中图3的方式来评价特征点分布是否足够均匀
 }
 
 }  // namespace
@@ -104,27 +105,29 @@ IncrementalMapper::IncrementalMapper(
       num_total_reg_images_(0),
       num_shared_reg_images_(0) {}
 
+//主要是读取图像和特征点数据，并获取一共有多少个相机
 void IncrementalMapper::BeginReconstruction(const std::shared_ptr<Reconstruction>& reconstruction) {
+
   THROW_CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
-  reconstruction_->Load(*database_cache_);
-  reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
-  triangulator_ = std::make_unique<IncrementalTriangulator>(
-      database_cache_->CorrespondenceGraph(), reconstruction);
+  reconstruction_->Load(*database_cache_);//应该是读取图像和对应的特征点到内存中
+  reconstruction_->SetUp(database_cache_->CorrespondenceGraph());//应该是为不同分辨率的grid设立内存空间，对应论文图3
+  triangulator_ = std::make_unique<IncrementalTriangulator>(database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
   //image_t = uint32_t
   for (const image_t image_id : reconstruction_->RegImageIds()) {
-    RegisterImageEvent(image_id);
+    RegisterImageEvent(image_id);//里面就是简单计算几个数字，进行了简单的++操作
   }
 
+  //一共有多少个相机，每个相机对应的id，不同相机表示不同的相机内参
   existing_image_ids_ =  std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
                                                      reconstruction->RegImageIds().end());
 
   filtered_images_.clear();
   num_reg_trials_.clear();
-}
+}//end function BeginReconstruction
 
 void IncrementalMapper::EndReconstruction(const bool discard) {
   THROW_CHECK_NOTNULL(reconstruction_);
@@ -137,9 +140,10 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 
   reconstruction_->TearDown();
   reconstruction_ = nullptr;
-  triangulator_.reset();
+  triangulator_.reset();//triangulator_ = unique_ptr
 }
 
+//作者首先找到两帧有效匹配图像，这里有效匹配图像的定义：匹配量足够多，并且可以计算出两帧的相对位姿
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              TwoViewGeometry& two_view_geometry,
                                              image_t& image_id1,
@@ -161,21 +165,21 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
     image_ids1.push_back(image_id2);
   } else {
     // No initial seed image provided.
-    image_ids1 = FindFirstInitialImage(options);
+    //遍历所有的图像，然后将图像按照一定的顺序排序，然后返回的是所有图像的序号
+    image_ids1 = FindFirstInitialImage(options);//第一次应该会进入这条件
   }
+
 
   // Try to find good initial pair.
   for (size_t i1 = 0; i1 < image_ids1.size(); ++i1) {
     image_id1 = image_ids1[i1];
-
-    const std::vector<image_t> image_ids2 =
-        FindSecondInitialImage(options, image_id1);
+    //返回的是和图像image_id1有一定匹配数量的候选图像
+    const std::vector<image_t> image_ids2 = FindSecondInitialImage(options, image_id1);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       image_id2 = image_ids2[i2];
 
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id1, image_id2);
+      const image_pair_t pair_id = Database::ImagePairToPairId(image_id1, image_id2);
 
       // Try every pair only once.
       if (init_image_pairs_.count(pair_id) > 0) {
@@ -184,9 +188,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 
       init_image_pairs_.insert(pair_id);
 
-      if (EstimateInitialTwoViewGeometry(
-              options, two_view_geometry, image_id1, image_id2)) {
-        return true;
+      //计算两个图像的相对位姿信息，如果估计失败则返回false，如果成功则将结果保存到two_view_geometry数据中
+      if (EstimateInitialTwoViewGeometry( options, two_view_geometry, image_id1, image_id2)) {
+        return true;//注意注意！！！！作者这里直接返回了，也就说找到了第一对有效的两帧匹配图像并可以有效计算出两帧的相对位姿，就会立刻返回
       }
     }
   }
@@ -196,8 +200,9 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
   image_id2 = kInvalidImageId;
 
   return false;
-}
+}//end function FindInitialImagePair
 
+//找到下一步的所有可能的要被注册的图像，而不是只找一个图像
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
@@ -210,8 +215,8 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
     case Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_RATIO:
       rank_image_func = RankNextImageMaxVisiblePointsRatio;
       break;
-    case Options::ImageSelectionMethod::MIN_UNCERTAINTY:
-      rank_image_func = RankNextImageMinUncertainty;
+    case Options::ImageSelectionMethod::MIN_UNCERTAINTY://默认是这个参数 MIN_UNCERTAINTY
+      rank_image_func = RankNextImageMinUncertainty;//对应图像特征点平衡分布得分
       break;
   }
 
@@ -226,13 +231,15 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
     }
 
     // Only consider images with a sufficient number of visible points.
-    if (image.second.NumVisiblePoints3D() <
-        static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+    //abs_pose_min_num_inliers 默认值 = 30
+    //这张图像的特征点有多少和其他相机有共视，如果共识太少则不不认为是要被注册的图像
+    if (image.second.NumVisiblePoints3D() < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
       continue;
     }
 
     // Only try registration for a certain maximum number of times.
     const size_t num_reg_trials = num_reg_trials_[image.first];
+    //max_reg_trials默认值 = 3，这个相机有可能会被尝试注册最多多少次
     if (num_reg_trials >= static_cast<size_t>(options.max_reg_trials)) {
       continue;
     }
@@ -241,24 +248,27 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
     // second bucket and prefer images that have not been tried before.
     const float rank = rank_image_func(image.second);
     if (filtered_images_.count(image.first) == 0 && num_reg_trials == 0) {
-      image_ranks.emplace_back(image.first, rank);
+      image_ranks.emplace_back(image.first, rank);//表示这个相机从来没有被注册过
     } else {
       other_image_ranks.emplace_back(image.first, rank);
     }
   }
 
   std::vector<image_t> ranked_images_ids;
-  SortAndAppendNextImages(image_ranks, &ranked_images_ids);
+  //这个函数的作用是将image_ranks降序排列，然后将排序之后的vecor数据，加入到ranked_images_ids后面
+  //这个函数的实现就在这个文件里
+  SortAndAppendNextImages(image_ranks, &ranked_images_ids);//返回的结果是ranked_images_ids
   SortAndAppendNextImages(other_image_ranks, &ranked_images_ids);
 
   return ranked_images_ids;
-}
+}//
 
 void IncrementalMapper::RegisterInitialImagePair(
     const Options& options,
     const TwoViewGeometry& two_view_geometry,
     const image_t image_id1,
     const image_t image_id2) {
+
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
@@ -269,8 +279,7 @@ void IncrementalMapper::RegisterInitialImagePair(
   num_reg_trials_[image_id1] += 1;
   num_reg_trials_[image_id2] += 1;
 
-  const image_pair_t pair_id =
-      Database::ImagePairToPairId(image_id1, image_id2);
+  const image_pair_t pair_id = Database::ImagePairToPairId(image_id1, image_id2);
   init_image_pairs_.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
@@ -283,27 +292,26 @@ void IncrementalMapper::RegisterInitialImagePair(
   // Estimate two-view geometry
   //////////////////////////////////////////////////////////////////////////////
 
-  image1.CamFromWorld() = Rigid3d();
-  image2.CamFromWorld() = two_view_geometry.cam2_from_cam1;
+  image1.CamFromWorld() = Rigid3d();//默认是一个单位矩阵 第一个图像的绝对位姿是单位矩阵
+  image2.CamFromWorld() = two_view_geometry.cam2_from_cam1;//根据两帧的对极几何得到的两帧相对位姿
 
   const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
   const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
-  const Eigen::Vector3d proj_center1 = image1.ProjectionCenter();
+  const Eigen::Vector3d proj_center1 = image1.ProjectionCenter();//两个相机的原点坐标
   const Eigen::Vector3d proj_center2 = image2.ProjectionCenter();
 
   //////////////////////////////////////////////////////////////////////////////
   // Update Reconstruction
   //////////////////////////////////////////////////////////////////////////////
 
-  reconstruction_->RegisterImage(image_id1);
+  reconstruction_->RegisterImage(image_id1);//本身这个函数没干什么事情，就是将标注这个图像是被注册过了
   reconstruction_->RegisterImage(image_id2);
-  RegisterImageEvent(image_id1);
+  RegisterImageEvent(image_id1);//就是计算一下注册次数，不是大函数
   RegisterImageEvent(image_id2);
 
-  const FeatureMatches& corrs =
-      database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
-          image_id1, image_id2);
+  const FeatureMatches& corrs = database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(image_id1, image_id2);
 
+  //init_min_tri_angle默认值 = 16度
   const double min_tri_angle_rad = DegToRad(options.init_min_tri_angle);
 
   // Add 3D point tracks.
@@ -314,23 +322,19 @@ void IncrementalMapper::RegisterInitialImagePair(
   track.Element(0).image_id = image_id1;
   track.Element(1).image_id = image_id2;
   for (const auto& corr : corrs) {
-    const Eigen::Vector2d point2D1 =
-        camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);
-    const Eigen::Vector2d point2D2 =
-        camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
-    const Eigen::Vector3d& xyz =
-        TriangulatePoint(cam_from_world1, cam_from_world2, point2D1, point2D2);
-    const double tri_angle =
-        CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
-    if (tri_angle >= min_tri_angle_rad &&
-        HasPointPositiveDepth(cam_from_world1, xyz) &&
+    const Eigen::Vector2d point2D1 = camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);//相当于从K.inverse()*像素坐标
+    const Eigen::Vector2d point2D2 = camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
+    const Eigen::Vector3d& xyz = TriangulatePoint(cam_from_world1, cam_from_world2, point2D1, point2D2);//三角化点
+    const double tri_angle = CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
+    if (tri_angle >= min_tri_angle_rad && //三角化之后的角度足够大
+        HasPointPositiveDepth(cam_from_world1, xyz) && //并且三角化之后点在两个相机坐标系下一定深度为证
         HasPointPositiveDepth(cam_from_world2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
-      reconstruction_->AddPoint3D(xyz, track);
+      reconstruction_->AddPoint3D(xyz, track);//设置图像和这个3d点的观测信息，同时生成一个3D点的数据结构
     }
   }
-}
+}//end function RegisterInitialImagePair
 
 bool IncrementalMapper::RegisterNextImage(const Options& options,
                                           const image_t image_id) {
@@ -528,14 +532,13 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   return true;
 }
 
-size_t IncrementalMapper::TriangulateImage(
-    const IncrementalTriangulator::Options& tri_options,
-    const image_t image_id) {
+//
+size_t IncrementalMapper::TriangulateImage( const IncrementalTriangulator::Options& tri_options,
+                                            const image_t image_id) {
   THROW_CHECK_NOTNULL(reconstruction_);
   VLOG(1) << "=> Continued observations: "
           << reconstruction_->Image(image_id).NumPoints3D();
-  const size_t num_tris =
-      triangulator_->TriangulateImage(tri_options, image_id);
+  const size_t num_tris = triangulator_->TriangulateImage(tri_options, image_id);
   VLOG(1) << "=> Added observations: " << num_tris;
   return num_tris;
 }
@@ -683,8 +686,7 @@ IncrementalMapper::AdjustLocalBundle(
   return report;
 }
 
-bool IncrementalMapper::AdjustGlobalBundle(
-    const Options& options, const BundleAdjustmentOptions& ba_options) {
+bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleAdjustmentOptions& ba_options) {
   THROW_CHECK_NOTNULL(reconstruction_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
@@ -724,8 +726,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Fix 7-DOFs of the bundle adjustment problem.
   ba_config.SetConstantCamPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
+  if (!options.fix_existing_images || !existing_image_ids_.count(reg_image_ids[1])) {
     ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
   }
 
@@ -733,6 +734,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
   BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
   return bundle_adjuster.Solve(reconstruction_.get());
 }
+
+
 
 void IncrementalMapper::IterativeLocalRefinement(
     const int max_num_refinements,
@@ -797,6 +800,7 @@ void IncrementalMapper::IterativeGlobalRefinement(
   }
 }
 
+//
 size_t IncrementalMapper::FilterImages(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
@@ -809,10 +813,9 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
     return {};
   }
 
-  const std::vector<image_t> image_ids =
-      reconstruction_->FilterImages(options.min_focal_length_ratio,
-                                    options.max_focal_length_ratio,
-                                    options.max_extra_param);
+  const std::vector<image_t> image_ids = reconstruction_->FilterImages(options.min_focal_length_ratio,
+                                                                        options.max_focal_length_ratio,
+                                                                        options.max_extra_param);
 
   for (const image_t image_id : image_ids) {
     DeRegisterImageEvent(image_id);
@@ -827,8 +830,8 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
 size_t IncrementalMapper::FilterPoints(const Options& options) {
   THROW_CHECK_NOTNULL(reconstruction_);
   THROW_CHECK(options.Check());
-  const size_t num_filtered_observations = reconstruction_->FilterAllPoints3D(
-      options.filter_max_reproj_error, options.filter_min_tri_angle);
+  const size_t num_filtered_observations = reconstruction_->FilterAllPoints3D( options.filter_max_reproj_error, 
+                                                                               options.filter_min_tri_angle);
   VLOG(1) << "=> Filtered observations: " << num_filtered_observations;
   return num_filtered_observations;
 }
@@ -854,8 +857,9 @@ void IncrementalMapper::ClearModifiedPoints3D() {
   triangulator_->ClearModifiedPoints3D();
 }
 
-std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
-    const Options& options) const {
+
+//遍历所有的图像，然后将图像按照一定的顺序排序，然后返回的是所有图像的序号
+std::vector<image_t> IncrementalMapper::FindFirstInitialImage(const Options& options) const {
   // Struct to hold meta-data for ranking images.
   struct ImageInfo {
     image_t image_id;
@@ -863,13 +867,14 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
     image_t num_correspondences;
   };
 
-  const size_t init_max_reg_trials =
-      static_cast<size_t>(options.init_max_reg_trials);
+  //
+  const size_t init_max_reg_trials = static_cast<size_t>(options.init_max_reg_trials);
 
   // Collect information of all not yet registered images with
   // correspondences.
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction_->NumImages());
+  //1.遍历所有的图像，构建image_infos
   for (const auto& image : reconstruction_->Images()) {
     // Only images with correspondences can be registered.
     if (image.second.NumCorrespondences() == 0) {
@@ -889,17 +894,17 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
       continue;
     }
 
-    const struct Camera& camera =
-        reconstruction_->Camera(image.second.CameraId());
+    const struct Camera& camera =  reconstruction_->Camera(image.second.CameraId());
     ImageInfo image_info;
     image_info.image_id = image.first;
     image_info.prior_focal_length = camera.has_prior_focal_length;
     image_info.num_correspondences = image.second.NumCorrespondences();
     image_infos.push_back(image_info);
-  }
+  }//遍历完所有的图像
 
   // Sort images such that images with a prior focal length and more
   // correspondences are preferred, i.e. they appear in the front of the list.
+  //2.按照图像的focal length进行排序
   std::sort(
       image_infos.begin(),
       image_infos.end(),
@@ -915,7 +920,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
         }
       });
 
-  // Extract image identifiers in sorted order.
+  //3.Extract image identifiers in sorted order.
   std::vector<image_t> image_ids;
   image_ids.reserve(image_infos.size());
   for (const ImageInfo& image_info : image_infos) {
@@ -923,23 +928,21 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
   }
 
   return image_ids;
-}
+}//end function 
 
-std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
-    const Options& options, const image_t image_id1) const {
-  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
-      database_cache_->CorrespondenceGraph();
+//返回的是和图像image_id1有一定匹配数量的候选图像
+std::vector<image_t> IncrementalMapper::FindSecondInitialImage( const Options& options, const image_t image_id1) const {
+
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph = database_cache_->CorrespondenceGraph();
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
+  //1.获取当前image_id1图像和全局的哪个图像匹配关系最多
   const class Image& image1 = reconstruction_->Image(image_id1);
   std::unordered_map<image_t, point2D_t> num_correspondences;
-  for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
-       ++point2D_idx) {
-    const auto corr_range =
-        correspondence_graph->FindCorrespondences(image_id1, point2D_idx);
+  for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D(); ++point2D_idx) {
+    const auto corr_range = correspondence_graph->FindCorrespondences(image_id1, point2D_idx);
     for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
-      if (num_registrations_.count(corr->image_id) == 0 ||
-          num_registrations_.at(corr->image_id) == 0) {
+      if (num_registrations_.count(corr->image_id) == 0 || num_registrations_.at(corr->image_id) == 0) {
         num_correspondences[corr->image_id] += 1;
       }
     }
@@ -952,12 +955,12 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
     point2D_t num_correspondences;
   };
 
-  const size_t init_min_num_inliers =
-      static_cast<size_t>(options.init_min_num_inliers);
+  const size_t init_min_num_inliers =  static_cast<size_t>(options.init_min_num_inliers);
 
   // Compose image information in a compact form for sorting.
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction_->NumImages());
+  //2.只保留那些匹配关系大于一定数量的图像
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
       const class Image& image = reconstruction_->Image(elem.first);
@@ -972,6 +975,7 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
 
   // Sort images such that images with a prior focal length and more
   // correspondences are preferred, i.e. they appear in the front of the list.
+  //3.然后将匹配的结果按照焦距进行排序
   std::sort(
       image_infos.begin(),
       image_infos.end(),
@@ -995,7 +999,7 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   }
 
   return image_ids;
-}
+}//end function FindSecondInitialImage
 
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
@@ -1167,10 +1171,10 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
   return local_bundle_image_ids;
 }
 
+//RegisterImageEvent 函数
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
   const Image& image = reconstruction_->Image(image_id);
-  size_t& num_reg_images_for_camera =
-      num_reg_images_per_camera_[image.CameraId()];
+  size_t& num_reg_images_for_camera = num_reg_images_per_camera_[image.CameraId()];//某个相机对应注册图像的总个数
   num_reg_images_for_camera += 1;
 
   size_t& num_regs_for_image = num_registrations_[image_id];
@@ -1180,7 +1184,8 @@ void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
   } else if (num_regs_for_image > 1) {
     num_shared_reg_images_ += 1;
   }
-}
+}//end  function RegisterImageEvent
+
 
 void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
   const Image& image = reconstruction_->Image(image_id);
@@ -1198,20 +1203,20 @@ void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
   }
 }
 
+//计算两个图像的相对位姿信息，如果估计失败则返回false，如果成功则将结果保存到two_view_geometry数据中
 bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     const Options& options,
-    TwoViewGeometry& two_view_geometry,
+    TwoViewGeometry& two_view_geometry,//output
     const image_t image_id1,
     const image_t image_id2) {
+
   const Image& image1 = database_cache_->Image(image_id1);
   const Camera& camera1 = database_cache_->Camera(image1.CameraId());
 
   const Image& image2 = database_cache_->Image(image_id2);
   const Camera& camera2 = database_cache_->Camera(image2.CameraId());
 
-  const FeatureMatches matches =
-      database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
-          image_id1, image_id2);
+  const FeatureMatches matches = database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(image_id1, image_id2);
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());
@@ -1228,23 +1233,25 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
-  two_view_geometry = EstimateCalibratedTwoViewGeometry(
-      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+  //搜索 EstimateCalibratedTwoViewGeometry 函数
+  two_view_geometry = EstimateCalibratedTwoViewGeometry( camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
-  if (!EstimateTwoViewGeometryPose(
-          camera1, points1, camera2, points2, &two_view_geometry)) {
+  //根据匹配的结果计算得到两个相机的相对位姿，并存储在two_view_geometry中
+  if (!EstimateTwoViewGeometryPose( camera1, points1, camera2, points2, &two_view_geometry)) {
     return false;
   }
 
-  if (static_cast<int>(two_view_geometry.inlier_matches.size()) >=
-          options.init_min_num_inliers &&
-      std::abs(two_view_geometry.cam2_from_cam1.translation.z()) <
-          options.init_max_forward_motion &&
+  //计算出来的相对位姿z轴深度不能超过0.95米（= init_max_forward_motion）
+  //三角化点的夹角足够大
+  //inliner足够多
+  //只有上面这三个条件都满足，那么认为这两帧计算出来的相对位姿是有效的！
+  if (static_cast<int>(two_view_geometry.inlier_matches.size()) >= options.init_min_num_inliers &&
+      std::abs(two_view_geometry.cam2_from_cam1.translation.z()) < options.init_max_forward_motion &&
       two_view_geometry.tri_angle > DegToRad(options.init_min_tri_angle)) {
     return true;
   }
 
   return false;
-}
+}//end function EstimateInitialTwoViewGeometry
 
 }  // namespace colmap

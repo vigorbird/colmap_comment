@@ -89,7 +89,7 @@ std::map<size_t, std::shared_ptr<Reconstruction>> IncrementalMapping(
     reconstructions[i] = reconstruction_manager->Get(i);
   }
   return reconstructions;
-}
+}//end function IncrementalMapping
 
 void BundleAdjustment(const std::shared_ptr<Reconstruction>& reconstruction,
                       const BundleAdjustmentOptions& options) {

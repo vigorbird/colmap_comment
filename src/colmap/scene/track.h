@@ -37,6 +37,7 @@
 namespace colmap {
 
 // Track class stores all observations of a 3D point.
+//这个结构体存储的信息就是 图像序号+特征点在图像中的序号
 struct TrackElement {
   TrackElement();
   TrackElement(image_t image_id, point2D_t point2D_idx);
@@ -46,6 +47,7 @@ struct TrackElement {
   point2D_t point2D_idx;
 };
 
+//这个数据结构就是存储对空间同一个三维点的共同观测
 class Track {
  public:
   Track();
@@ -80,7 +82,7 @@ class Track {
   inline void Compress();
 
  private:
-  std::vector<TrackElement> elements_;
+  std::vector<TrackElement> elements_;//对同一个三维点，所有观测！
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -129,6 +131,6 @@ void Track::Reserve(const size_t num_elements) {
   elements_.reserve(num_elements);
 }
 
-void Track::Compress() { elements_.shrink_to_fit(); }
+void Track::Compress() { elements_.shrink_to_fit(); }//这个函数是vector自带的成员函数，请求容器降低其容量和size匹配。该请求不具有约束力，容器可以自由地去执行其他的优化方案
 
 }  // namespace colmap

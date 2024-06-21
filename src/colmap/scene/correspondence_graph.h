@@ -42,10 +42,8 @@ namespace colmap {
 class CorrespondenceGraph {
  public:
   struct Correspondence {
-    Correspondence()
-        : image_id(kInvalidImageId), point2D_idx(kInvalidPoint2DIdx) {}
-    Correspondence(const image_t image_id, const point2D_t point2D_idx)
-        : image_id(image_id), point2D_idx(point2D_idx) {}
+    Correspondence()  : image_id(kInvalidImageId), point2D_idx(kInvalidPoint2DIdx) {}
+    Correspondence(const image_t image_id, const point2D_t point2D_idx) : image_id(image_id), point2D_idx(point2D_idx) {}
 
     // The identifier of the corresponding image.
     image_t image_id;

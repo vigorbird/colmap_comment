@@ -41,8 +41,7 @@
 
 namespace colmap {
 
-Reconstruction::Reconstruction()
-    : correspondence_graph_(nullptr), max_point3D_id_(0) {}
+Reconstruction::Reconstruction() : correspondence_graph_(nullptr), max_point3D_id_(0) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -96,14 +95,15 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   }
 }
 
-void Reconstruction::SetUp(
-    std::shared_ptr<const CorrespondenceGraph> correspondence_graph) {
+void Reconstruction::SetUp(std::shared_ptr<const CorrespondenceGraph> correspondence_graph) {
   correspondence_graph_ = std::move(THROW_CHECK_NOTNULL(correspondence_graph));
 
+  //应该是为不同分辨率的grid设立内存空间，对应论文图3
   for (auto& image : images_) {
     image.second.SetUp(Camera(image.second.CameraId()));
   }
 
+  //第一次执行情况下应该是不会执行下面的代码
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
   for (const auto image_id : reg_image_ids_) {
@@ -112,12 +112,11 @@ void Reconstruction::SetUp(
          ++point2D_idx) {
       if (image.Point2D(point2D_idx).HasPoint3D()) {
         const bool kIsContinuedPoint3D = false;
-        SetObservationAsTriangulated(
-            image_id, point2D_idx, kIsContinuedPoint3D);
+        SetObservationAsTriangulated(image_id, point2D_idx, kIsContinuedPoint3D);
       }
     }
   }
-}
+}//end function SetUp
 
 void Reconstruction::TearDown() {
   correspondence_graph_ = nullptr;
@@ -172,29 +171,30 @@ void Reconstruction::AddPoint3D(const point3D_t point3D_id,
   THROW_CHECK(points3D_.emplace(point3D_id, std::move(point3D)).second);
 }
 
+//设置图像和这个3d点的观测信息，同时生成一个3D点的数据结构
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
                                      Track track,
-                                     const Eigen::Vector3ub& color) {
+                                     const Eigen::Vector3ub& color) {//默认输入参数是0向量
   const point3D_t point3D_id = ++max_point3D_id_;
   THROW_CHECK(!ExistsPoint3D(point3D_id));
 
+  //设置图像结构体中的观测信息，根据3D点关联关系，设置图像中特征点对应的3D点坐标
   for (const auto& track_el : track.Elements()) {
     class Image& image = Image(track_el.image_id);
     THROW_CHECK(!image.Point2D(track_el.point2D_idx).HasPoint3D());
-    image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);
+    image.SetPoint3DForPoint2D(track_el.point2D_idx, point3D_id);//设置图像中特征点对应的3d点序号
     THROW_CHECK_LE(image.NumPoints3D(), image.NumPoints2D());
   }
 
   const bool kIsContinuedPoint3D = false;
-
+  //这特征点能够对应3D点，需要拿到能够拿到这个3D点的所有特征点，然后需要为这些特征带你设置属性
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(
-        track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
+        SetObservationAsTriangulated(track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
   }
 
   struct Point3D& point3D = points3D_[point3D_id];
   point3D.xyz = xyz;
-  point3D.track = std::move(track);
+  point3D.track = std::move(track);//有点hack，不建议这么做，非常容易错
   point3D.color = color;
 
   return point3D_id;
@@ -327,6 +327,7 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
       reg_image_ids_.end());
 }
 
+//
 void Reconstruction::Normalize(const double extent,
                                const double p0,
                                const double p1,
@@ -350,10 +351,9 @@ void Reconstruction::Normalize(const double extent,
     scale = extent / old_extent;
   }
 
-  Sim3d tform(
-      scale, Eigen::Quaterniond::Identity(), -scale * std::get<2>(bound));
+  Sim3d tform(scale, Eigen::Quaterniond::Identity(), -scale * std::get<2>(bound));
   Transform(tform);
-}
+}//end function Normalize
 
 Eigen::Vector3d Reconstruction::ComputeCentroid(const double p0,
                                                 const double p1) const {
@@ -600,10 +600,9 @@ std::vector<image_t> Reconstruction::FilterImages(
   std::vector<image_t> filtered_image_ids;
   for (const image_t image_id : RegImageIds()) {
     const class Image& image = Image(image_id);
-    if (image.NumPoints3D() == 0 || Camera(image.CameraId())
-                                        .HasBogusParams(min_focal_length_ratio,
-                                                        max_focal_length_ratio,
-                                                        max_extra_param)) {
+    if (image.NumPoints3D() == 0 || Camera(image.CameraId()).HasBogusParams(min_focal_length_ratio,
+                                                                            max_focal_length_ratio,
+                                                                            max_extra_param)) {
       filtered_image_ids.push_back(image_id);
     }
   }
@@ -615,7 +614,7 @@ std::vector<image_t> Reconstruction::FilterImages(
   }
 
   return filtered_image_ids;
-}
+}//end function FilterImages
 
 size_t Reconstruction::ComputeNumObservations() const {
   size_t num_obs = 0;
@@ -983,10 +982,12 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
   return num_filtered;
 }
 
+//设置其他图像对这个特征点的三角化信息
 void Reconstruction::SetObservationAsTriangulated(
-    const image_t image_id,
-    const point2D_t point2D_idx,
+    const image_t image_id,//图像id
+    const point2D_t point2D_idx,//图像对应的特征点索引
     const bool is_continued_point3D) {
+
   if (correspondence_graph_ == nullptr) {
     return;
   }
@@ -997,18 +998,20 @@ void Reconstruction::SetObservationAsTriangulated(
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
 
-  const auto corr_range =
-      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+  //图像上这个特征点还有在哪些图像上被观测到了，遍历这些其他图象上的特征点
+  const auto corr_range = correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
   for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
     class Image& corr_image = Image(corr->image_id);
     const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+
+    //设置图像这个特征点的属性信息，表示这个特征点在其他帧被观测到了，即有对应的3d点
     corr_image.IncrementCorrespondenceHasPoint3D(corr->point2D_idx);
+
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
     if (point2D.point3D_id == corr_point2D.point3D_id &&
         (is_continued_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
+      const image_pair_t pair_id = Database::ImagePairToPairId(image_id, corr->image_id);
       auto& stats = image_pair_stats_[pair_id];
       stats.num_tri_corrs += 1;
       THROW_CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
@@ -1016,7 +1019,7 @@ void Reconstruction::SetObservationAsTriangulated(
           << corr->image_id << " " << corr->point2D_idx;
     }
   }
-}
+}//end function SetObservationAsTriangulated
 
 void Reconstruction::ResetTriObservations(const image_t image_id,
                                           const point2D_t point2D_idx,

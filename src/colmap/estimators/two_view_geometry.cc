@@ -323,18 +323,19 @@ TwoViewGeometry EstimateTwoViewGeometry(const Camera& camera1,
   }
 }//end function EstimateTwoViewGeometry
 
-bool EstimateTwoViewGeometryPose(const Camera& camera1,
-                                 const std::vector<Eigen::Vector2d>& points1,
-                                 const Camera& camera2,
-                                 const std::vector<Eigen::Vector2d>& points2,
-                                 TwoViewGeometry* geometry) {
+
+//根据两个相机的匹配关系，恢复出两个相机的相对位姿
+bool EstimateTwoViewGeometryPose(const Camera& camera1,//in
+                                 const std::vector<Eigen::Vector2d>& points1,//in
+                                 const Camera& camera2,//in
+                                 const std::vector<Eigen::Vector2d>& points2,//in
+                                 TwoViewGeometry* geometry) {//output
   // We need a valid epopolar geometry to estimate the relative pose.
   if (geometry->config != TwoViewGeometry::ConfigurationType::CALIBRATED &&
       geometry->config != TwoViewGeometry::ConfigurationType::UNCALIBRATED &&
       geometry->config != TwoViewGeometry::ConfigurationType::PLANAR &&
       geometry->config != TwoViewGeometry::ConfigurationType::PANORAMIC &&
-      geometry->config !=
-          TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+      geometry->config != TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
     return false;
   }
 
@@ -344,21 +345,20 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
   std::vector<Eigen::Vector2d> inlier_points2_normalized;
   inlier_points2_normalized.reserve(geometry->inlier_matches.size());
   for (const auto& match : geometry->inlier_matches) {
-    inlier_points1_normalized.push_back(
-        camera1.CamFromImg(points1[match.point2D_idx1]));
-    inlier_points2_normalized.push_back(
-        camera2.CamFromImg(points2[match.point2D_idx2]));
+    inlier_points1_normalized.push_back( camera1.CamFromImg(points1[match.point2D_idx1]));
+    inlier_points2_normalized.push_back( camera2.CamFromImg(points2[match.point2D_idx2]));
   }
 
   Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-
+  //1.恢复出相机的位姿
   if (geometry->config == TwoViewGeometry::ConfigurationType::CALIBRATED ||
       geometry->config == TwoViewGeometry::ConfigurationType::UNCALIBRATED) {
     // Try to recover relative pose for calibrated and uncalibrated
     // configurations. In the uncalibrated case, this most likely leads to a
     // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
     // subsequent bundle-adjustment etc.
+    //搜索 void PoseFromEssentialMatrix
     PoseFromEssentialMatrix(geometry->E,
                             inlier_points1_normalized,
                             inlier_points2_normalized,
@@ -366,10 +366,8 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
                             &geometry->cam2_from_cam1.translation,
                             &points3D);
   } else if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR ||
-             geometry->config ==
-                 TwoViewGeometry::ConfigurationType::PANORAMIC ||
-             geometry->config ==
-                 TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+             geometry->config == TwoViewGeometry::ConfigurationType::PANORAMIC ||
+             geometry->config == TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
     Eigen::Vector3d normal;
     PoseFromHomographyMatrix(geometry->H,
                              camera1.CalibrationMatrix(),
@@ -384,33 +382,35 @@ bool EstimateTwoViewGeometryPose(const Camera& camera1,
     return false;
   }
 
-  geometry->cam2_from_cam1.rotation =
-      Eigen::Quaterniond(cam2_from_cam1_rot_mat);
+  geometry->cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
 
+  //2.计算三角化后点的均值角度
   if (points3D.empty()) {
     geometry->tri_angle = 0;
   } else {
-    geometry->tri_angle = Median(
-        CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
-                                     -cam2_from_cam1_rot_mat.transpose() *
-                                         geometry->cam2_from_cam1.translation,
-                                     points3D));
+    //CalculateTriangulationAngles = 计算所有三角化的点的所有夹角，详见算法实现文档
+    geometry->tri_angle = Median( CalculateTriangulationAngles(Eigen::Vector3d::Zero(),
+                                                              -cam2_from_cam1_rot_mat.transpose() * geometry->cam2_from_cam1.translation,
+                                                              points3D));
   }
 
-  if (geometry->config ==
-      TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+  if (geometry->config == TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC) {
+    //如果相机光心位置基本上没有发生变化，那么认为是全景模式
     if (geometry->cam2_from_cam1.translation.norm() == 0) {
       geometry->config = TwoViewGeometry::ConfigurationType::PANORAMIC;
       geometry->tri_angle = 0;
     } else {
+      //否则认为是平面约束
       geometry->config = TwoViewGeometry::ConfigurationType::PLANAR;
     }
   }
 
   return true;
-}
+}//end function EstimateTwoViewGeometryPose
+
 
 //函数的变量全部是输入值
+//搜索 EstimateCalibratedTwoViewGeometry函数
 TwoViewGeometry EstimateCalibratedTwoViewGeometry(  const Camera& camera1,//
                                                     const std::vector<Eigen::Vector2d>& points1,
                                                     const Camera& camera2,

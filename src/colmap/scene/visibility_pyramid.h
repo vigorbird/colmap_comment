@@ -48,6 +48,7 @@ namespace colmap {
 // populated by at least one point and the contributed score is according
 // to its resolution in the pyramid. A cell in a higher resolution level
 // contributes a higher score to the overall score.
+//这个数据结构因该是对应论文中的图三，表示特征点的分布的均衡程度
 class VisibilityPyramid {
  public:
   VisibilityPyramid();

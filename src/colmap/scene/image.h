@@ -153,6 +153,7 @@ class Image {
   Eigen::Vector3d ViewingDirection() const;
 
   // The number of levels in the 3D point multi-resolution visibility pyramid.
+  //默认值应该是等于6
   static const int kNumPoint3DVisibilityPyramidLevels;
 
  private:

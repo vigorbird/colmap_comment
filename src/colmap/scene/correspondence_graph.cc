@@ -191,10 +191,8 @@ CorrespondenceGraph::FindCorrespondences(const image_t image_id,
   THROW_CHECK(finalized_);
   const point2D_t next_point2D_idx = point2D_idx + 1;
   const Image& image = images_.at(image_id);
-  const Correspondence* beg =
-      image.flat_corrs.data() + image.flat_corr_begs.at(point2D_idx);
-  const Correspondence* end =
-      image.flat_corrs.data() + image.flat_corr_begs.at(next_point2D_idx);
+  const Correspondence* beg = image.flat_corrs.data() + image.flat_corr_begs.at(point2D_idx);
+  const Correspondence* end = image.flat_corrs.data() + image.flat_corr_begs.at(next_point2D_idx);
   return CorrespondenceRange{beg, end};
 }
 
@@ -270,23 +268,20 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
   corrs->pop_back();
 }
 
-FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(
-    const image_t image_id1, const image_t image_id2) const {
-  const point2D_t num_correspondences =
-      NumCorrespondencesBetweenImages(image_id1, image_id2);
+FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages( const image_t image_id1, const image_t image_id2) const {
+  
+  //搜索 point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(
+  const point2D_t num_correspondences = NumCorrespondencesBetweenImages(image_id1, image_id2);
   if (num_correspondences == 0) {
     return {};
   }
 
   FeatureMatches corrs;
   corrs.reserve(num_correspondences);
-
-  const point2D_t num_points2D1 =
-      images_.at(image_id1).flat_corr_begs.size() - 1;
-  for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
-       ++point2D_idx1) {
-    const CorrespondenceRange range =
-        FindCorrespondences(image_id1, point2D_idx1);
+  
+  const point2D_t num_points2D1 = images_.at(image_id1).flat_corr_begs.size() - 1;
+  for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;  ++point2D_idx1) {
+    const CorrespondenceRange range = FindCorrespondences(image_id1, point2D_idx1);
     for (const Correspondence* corr = range.beg; corr < range.end; ++corr) {
       if (corr->image_id == image_id2) {
         corrs.emplace_back(point2D_idx1, corr->point2D_idx);
@@ -295,7 +290,7 @@ FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(
   }
 
   return corrs;
-}
+}//end function FindCorrespondencesBetweenImages
 
 bool CorrespondenceGraph::IsTwoViewObservation(
     const image_t image_id, const point2D_t point2D_idx) const {

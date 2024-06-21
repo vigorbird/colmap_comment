@@ -163,6 +163,9 @@ double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
 
 }  // namespace
 
+
+//根据匹配关系和两帧的相对位姿，进行三角化得到三角点，然后计算三角点在两个相机下的深度，如果深度不是特别大也不是特别小，那么认为这个是有效的3d点
+//如果没有有效的点，则返回false
 bool CheckCheirality(const Eigen::Matrix3d& R,
                      const Eigen::Vector3d& t,
                      const std::vector<Eigen::Vector2d>& points1,
@@ -177,8 +180,7 @@ bool CheckCheirality(const Eigen::Matrix3d& R,
   const double max_depth = 1000.0f * (R.transpose() * t).norm();
   points3D->clear();
   for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Vector3d point3D =
-        TriangulatePoint(proj_matrix1, proj_matrix2, points1[i], points2[i]);
+    const Eigen::Vector3d point3D = TriangulatePoint(proj_matrix1, proj_matrix2, points1[i], points2[i]);
     const double depth1 = CalculateDepth(proj_matrix1, point3D);
     if (depth1 > kMinDepth && depth1 < max_depth) {
       const double depth2 = CalculateDepth(proj_matrix2, point3D);

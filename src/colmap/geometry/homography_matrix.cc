@@ -90,8 +90,7 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
     H_normalized.array() *= -1.0;
   }
 
-  const Eigen::Matrix3d S =
-      H_normalized.transpose() * H_normalized - Eigen::Matrix3d::Identity();
+  const Eigen::Matrix3d S = H_normalized.transpose() * H_normalized - Eigen::Matrix3d::Identity();
 
   // Check if H is rotation matrix.
   const double kMinInfinityNorm = 1e-3;
@@ -188,20 +187,22 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K2,
                               const std::vector<Eigen::Vector2d>& points1,
                               const std::vector<Eigen::Vector2d>& points2,
-                              Eigen::Matrix3d* R,
-                              Eigen::Vector3d* t,
-                              Eigen::Vector3d* n,
-                              std::vector<Eigen::Vector3d>* points3D) {
+                              Eigen::Matrix3d* R,//输出
+                              Eigen::Vector3d* t,//输出
+                              Eigen::Vector3d* n,//输出
+                              std::vector<Eigen::Vector3d>* points3D) {//输出，有效输出的3D点
   THROW_CHECK_EQ(points1.size(), points2.size());
 
   std::vector<Eigen::Matrix3d> R_cmbs;
   std::vector<Eigen::Vector3d> t_cmbs;
   std::vector<Eigen::Vector3d> n_cmbs;
+  //根据H矩阵计算得到内外参数和相机的内外参数，有很多的candidate，下面需要判断具体选择哪个分解结果
   DecomposeHomographyMatrix(H, K1, K2, &R_cmbs, &t_cmbs, &n_cmbs);
 
   points3D->clear();
   for (size_t i = 0; i < R_cmbs.size(); ++i) {
     std::vector<Eigen::Vector3d> points3D_cmb;
+    //三角化后判断是否有有效的3d点
     CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
     if (points3D_cmb.size() >= points3D->size()) {
       *R = R_cmbs[i];
@@ -210,7 +211,7 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
       *points3D = points3D_cmb;
     }
   }
-}
+}//
 
 Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const Eigen::Matrix3d& K2,

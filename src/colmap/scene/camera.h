@@ -239,7 +239,8 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
 }
 
 Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {
-  return CameraModelCamFromImg(model_id, params, image_point).hnormalized();
+  //hnormalized ref to https://eigen.tuxfamily.org/dox/group__Geometry__Module.html#ga1f220045efa302626c287088b63b6ba9
+  return CameraModelCamFromImg(model_id, params, image_point).hnormalized();//hmornalized表示 将一个3*1向量，前两个元素除以第三个元素，然后返回前两维度
 }
 
 double Camera::CamFromImgThreshold(const double threshold) const {

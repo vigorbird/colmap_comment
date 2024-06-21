@@ -106,6 +106,7 @@ std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
 double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
                                    const Eigen::Vector3d& proj_center2,
                                    const Eigen::Vector3d& point3D);
+                                   
 std::vector<double> CalculateTriangulationAngles(
     const Eigen::Vector3d& proj_center1,
     const Eigen::Vector3d& proj_center2,

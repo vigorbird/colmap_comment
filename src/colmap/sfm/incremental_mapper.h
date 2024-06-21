@@ -126,8 +126,7 @@ class IncrementalMapper {
       MAX_VISIBLE_POINTS_RATIO,
       MIN_UNCERTAINTY,
     };
-    ImageSelectionMethod image_selection_method =
-        ImageSelectionMethod::MIN_UNCERTAINTY;
+    ImageSelectionMethod image_selection_method =  ImageSelectionMethod::MIN_UNCERTAINTY;
 
     bool Check() const;
   };
@@ -141,14 +140,12 @@ class IncrementalMapper {
 
   // Create incremental mapper. The database cache must live for the entire
   // life-time of the incremental mapper.
-  explicit IncrementalMapper(
-      std::shared_ptr<const DatabaseCache> database_cache);
+  explicit IncrementalMapper(std::shared_ptr<const DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction, which might have existing
   // registered images (in which case `RegisterNextImage` must be called) or
   // which is empty (in which case `RegisterInitialImagePair` must be called).
-  void BeginReconstruction(
-      const std::shared_ptr<Reconstruction>& reconstruction);
+  void BeginReconstruction(const std::shared_ptr<Reconstruction>& reconstruction);
 
   // Cleanup the mapper after the current reconstruction is done. If the
   // model is discarded, the number of total and shared registered images will
@@ -201,8 +198,7 @@ class IncrementalMapper {
   size_t MergeTracks(const IncrementalTriangulator::Options& tri_options);
 
   // Globally complete and merge tracks.
-  size_t CompleteAndMergeTracks(
-      const IncrementalTriangulator::Options& tri_options);
+  size_t CompleteAndMergeTracks(const IncrementalTriangulator::Options& tri_options);
 
   // Adjust locally connected images and points of a reference image. In
   // addition, refine the provided 3D points. Only images connected to the
@@ -312,7 +308,7 @@ class IncrementalMapper {
   // to avoid duplicate refinement of camera parameters and degradation of
   // already refined camera parameters in local bundle adjustment when multiple
   // images share intrinsics.
-  std::unordered_map<camera_t, size_t> num_reg_images_per_camera_;
+  std::unordered_map<camera_t, size_t> num_reg_images_per_camera_;//colmap允许不同相机对同一个场景拍照然后进行位姿估计，key是相机的序号，value是对应某个相机的照片总个数
 
   // The number of reconstructions in which images are registered.
   std::unordered_map<image_t, size_t> num_registrations_;

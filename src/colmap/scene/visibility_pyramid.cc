@@ -40,6 +40,7 @@ VisibilityPyramid::VisibilityPyramid(const size_t num_levels,
                                      const size_t width,
                                      const size_t height)
     : width_(width), height_(height), score_(0), max_score_(0) {
+  //std::vector<Eigen::MatrixXi> pyramid_;
   pyramid_.resize(num_levels);
   for (size_t level = 0; level < num_levels; ++level) {
     const size_t level_plus_one = level + 1;

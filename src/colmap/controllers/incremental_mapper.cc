@@ -117,8 +117,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.min_num_residuals_for_multi_threading =
       ba_min_num_residuals_for_multi_threading;
   options.loss_function_scale = 1.0;
-  options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.loss_function_type = BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
   return options;
 }
 
@@ -130,8 +129,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.logging_type =
-      ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  options.solver_options.logging_type = ceres::LoggingType::PER_MINIMIZER_ITERATION;
   options.solver_options.minimizer_progress_to_stdout = false;
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
@@ -141,10 +139,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
-  options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  options.min_num_residuals_for_multi_threading = ba_min_num_residuals_for_multi_threading;
+  options.loss_function_type = BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   return options;
 }
 
@@ -174,6 +170,7 @@ bool IncrementalMapperOptions::Check() const {
   return true;
 }
 
+//搜索 IncrementalMapperController构造函数
 IncrementalMapperController::IncrementalMapperController(
     std::shared_ptr<const IncrementalMapperOptions> options,
     const std::string& image_path,
@@ -252,10 +249,10 @@ bool IncrementalMapperController::LoadDatabase() {
 }
 
 IncrementalMapperController::Status
-IncrementalMapperController::InitializeReconstruction(
-    IncrementalMapper& mapper,
-    const IncrementalMapper::Options& mapper_options,
-    Reconstruction& reconstruction) {
+IncrementalMapperController::InitializeReconstruction(IncrementalMapper& mapper,
+                                                      const IncrementalMapper::Options& mapper_options,
+                                                      Reconstruction& reconstruction) {
+
   image_t image_id1 = static_cast<image_t>(options_->init_image_id1);
   image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
@@ -263,8 +260,8 @@ IncrementalMapperController::InitializeReconstruction(
   TwoViewGeometry two_view_geometry;
   if (!options_->IsInitialPairProvided()) {
     LOG(INFO) << "Finding good initial image pair";
-    const bool find_init_success = mapper.FindInitialImagePair(
-        mapper_options, two_view_geometry, image_id1, image_id2);
+    //整个代码就这里调用了FindInitialImagePair 函数
+    const bool find_init_success = mapper.FindInitialImagePair( mapper_options, two_view_geometry, image_id1, image_id2);
     if (!find_init_success) {
       LOG(INFO) << "=> No good initial image pair found.";
       return Status::NO_INITIAL_PAIR;
@@ -272,10 +269,9 @@ IncrementalMapperController::InitializeReconstruction(
   } else {
     if (!reconstruction.ExistsImage(image_id1) ||
         !reconstruction.ExistsImage(image_id2)) {
-      LOG(INFO) << StringPrintf(
-          "=> Initial image pair #%d and #%d do not exist.",
-          image_id1,
-          image_id2);
+      LOG(INFO) << StringPrintf("=> Initial image pair #%d and #%d do not exist.",
+                                image_id1,
+                                image_id2);
       return Status::BAD_INITIAL_PAIR;
     }
     const bool provided_init_success = mapper.EstimateInitialTwoViewGeometry(
@@ -286,10 +282,9 @@ IncrementalMapperController::InitializeReconstruction(
     }
   }
 
-  LOG(INFO) << StringPrintf(
-      "Initializing with image pair #%d and #%d", image_id1, image_id2);
-  mapper.RegisterInitialImagePair(
-      mapper_options, two_view_geometry, image_id1, image_id2);
+  LOG(INFO) << StringPrintf("Initializing with image pair #%d and #%d", image_id1, image_id2);
+  //2.非常重要的函数！
+  mapper.RegisterInitialImagePair( mapper_options, two_view_geometry, image_id1, image_id2);
 
   LOG(INFO) << "Global bundle adjustment";
   mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
@@ -302,11 +297,13 @@ IncrementalMapperController::InitializeReconstruction(
     return Status::BAD_INITIAL_PAIR;
   }
 
+  //默认会进入这个条件
   if (options_->extract_colors) {
     ExtractColors(image_path_, image_id1, reconstruction);
   }
   return Status::SUCCESS;
 }//end function InitializeReconstruction
+
 
 bool IncrementalMapperController::CheckRunGlobalRefinement(
     const Reconstruction& reconstruction,
@@ -324,7 +321,8 @@ IncrementalMapperController::ReconstructSubModel(
     IncrementalMapper& mapper,
     const IncrementalMapper::Options& mapper_options,
     const std::shared_ptr<Reconstruction>& reconstruction) {
-      
+
+  //1.主要是读取图像和特征点数据，并获取一共有多少个相机
   mapper.BeginReconstruction(reconstruction);
 
   ////////////////////////////////////////////////////////////////////////////
@@ -332,14 +330,13 @@ IncrementalMapperController::ReconstructSubModel(
   ////////////////////////////////////////////////////////////////////////////
 
   if (reconstruction->NumRegImages() == 0) {
-    const Status init_status =
-        IncrementalMapperController::InitializeReconstruction(
-            mapper, mapper_options, *reconstruction);
+    //整个代码就这里调用了InitializeReconstruction函数
+    const Status init_status = IncrementalMapperController::InitializeReconstruction( mapper, mapper_options, *reconstruction);
     if (init_status != Status::SUCCESS) {
       return init_status;
     }
   }
-  Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+  Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);//好像在c++代码中这是一个空函数！！
 
   ////////////////////////////////////////////////////////////////////////////
   // Incremental mapping
@@ -351,6 +348,7 @@ IncrementalMapperController::ReconstructSubModel(
 
   bool reg_next_success = true;
   bool prev_reg_next_success = true;
+  //注意这是一个大的for循环
   do {
     if (CheckIfStopped()) {
       break;
@@ -358,9 +356,8 @@ IncrementalMapperController::ReconstructSubModel(
 
     prev_reg_next_success = reg_next_success;
     reg_next_success = false;
-
-    const std::vector<image_t> next_images =
-        mapper.FindNextImages(mapper_options);
+    //2.找到下一步的所有可能的要被注册的图像，而不是只找一个图像, 并且返回的图像根据特征点的分布得分降序排序
+    const std::vector<image_t> next_images =  mapper.FindNextImages(mapper_options);
 
     if (next_images.empty()) {
       break;
@@ -377,10 +374,9 @@ IncrementalMapperController::ReconstructSubModel(
       LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
                                 next_image.NumVisiblePoints3D(),
                                 next_image.NumObservations());
-
-      reg_next_success =
-          mapper.RegisterNextImage(mapper_options, next_image_id);
-
+      //3.计算图像的位姿
+      reg_next_success =  mapper.RegisterNextImage(mapper_options, next_image_id);
+      //需要注意只要注册成功一个图像，立刻退出这个循环for
       if (reg_next_success) {
         break;
       } else {
@@ -390,12 +386,11 @@ IncrementalMapperController::ReconstructSubModel(
         // abort and try different initial pair.
         const size_t kMinNumInitialRegTrials = 30;
         if (reg_trial >= kMinNumInitialRegTrials &&
-            reconstruction->NumRegImages() <
-                static_cast<size_t>(options_->min_model_size)) {
+             reconstruction->NumRegImages() < static_cast<size_t>(options_->min_model_size)) {//min_model_size 默认值 = 30
           break;
         }
       }
-    }
+    }//遍历完所有的要注册的图像
 
     if (reg_next_success) {
       mapper.TriangulateImage(options_->Triangulation(), next_image_id);
@@ -406,8 +401,7 @@ IncrementalMapperController::ReconstructSubModel(
                                       options_->Triangulation(),
                                       next_image_id);
 
-      if (CheckRunGlobalRefinement(
-              *reconstruction, ba_prev_num_reg_images, ba_prev_num_points)) {
+      if (CheckRunGlobalRefinement(*reconstruction, ba_prev_num_reg_images, ba_prev_num_points)) {
         IterativeGlobalRefinement(*options_, mapper_options, mapper);
         ba_prev_num_points = reconstruction->NumPoints3D();
         ba_prev_num_reg_images = reconstruction->NumRegImages();
@@ -418,8 +412,7 @@ IncrementalMapperController::ReconstructSubModel(
       }
 
       if (options_->snapshot_images_freq > 0 &&
-          reconstruction->NumRegImages() >=
-              options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
+          reconstruction->NumRegImages() >= options_->snapshot_images_freq + snapshot_prev_num_reg_images) {
         snapshot_prev_num_reg_images = reconstruction->NumRegImages();
         WriteSnapshot(*reconstruction, options_->snapshot_path);
       }
@@ -427,8 +420,7 @@ IncrementalMapperController::ReconstructSubModel(
       Callback(NEXT_IMAGE_REG_CALLBACK);
     }
 
-    const size_t max_model_overlap =
-        static_cast<size_t>(options_->max_model_overlap);
+    const size_t max_model_overlap =  static_cast<size_t>(options_->max_model_overlap);
     if (mapper.NumSharedRegImages() >= max_model_overlap) {
       break;
     }
@@ -440,6 +432,8 @@ IncrementalMapperController::ReconstructSubModel(
       IterativeGlobalRefinement(*options_, mapper_options, mapper);
     }
   } while (reg_next_success || prev_reg_next_success);
+  //退出大循环！！！！！！！！！
+
 
   if (CheckIfStopped()) {
     return Status::INTERRUPTED;
@@ -452,10 +446,13 @@ IncrementalMapperController::ReconstructSubModel(
     IterativeGlobalRefinement(*options_, mapper_options, mapper);
   }
   return Status::SUCCESS;
-}
+}//end function ReconstructSubModel！
+
+
+
 
 void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& mapper_options) {
-  IncrementalMapper mapper(database_cache_);
+  IncrementalMapper mapper(database_cache_);//小构造函数就是初始赋值一些变量
 
   // Is there a sub-model before we start the reconstruction? I.e. the user
   // has imported an existing reconstruction.
@@ -464,19 +461,20 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
                                                         "single reconstruction, but "
                                                         "multiple are given.";
 
+  //init_num_trials默认值是200
   for (int num_trials = 0; num_trials < options_->init_num_trials; ++num_trials) {
     if (CheckIfStopped()) {
       break;
     }
     size_t reconstruction_idx;
     if (!initial_reconstruction_given || num_trials > 0) {
-      reconstruction_idx = reconstruction_manager_->Add();
+      reconstruction_idx = reconstruction_manager_->Add();//搜索 ReconstructionManager::Add()
     } else {
       reconstruction_idx = 0;
     }
     std::shared_ptr<Reconstruction> reconstruction =  reconstruction_manager_->Get(reconstruction_idx);
 
-    const Status status = ReconstructSubModel(mapper, mapper_options, reconstruction);
+    const Status status = ReconstructSubModel(mapper, mapper_options, reconstruction);//非常重要的函数！！！！
 
     switch (status) {
       case Status::INTERRUPTED:
@@ -495,35 +493,37 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
         break;
 
       case Status::SUCCESS: {
-        // Remember the total number of registered images before potentially
-        // discarding it below due to small size, so we can out of the main
-        // loop, if all images were registered.
-        const size_t total_num_reg_images = mapper.NumTotalRegImages();
+          // Remember the total number of registered images before potentially
+          // discarding it below due to small size, so we can out of the main
+          // loop, if all images were registered.
+          const size_t total_num_reg_images = mapper.NumTotalRegImages();
 
-        // If the total number of images is small then do not enforce the
-        // minimum model size so that we can reconstruct small image
-        // collections. Always keep the first reconstruction, independent of
-        // size.
-        const size_t min_model_size = std::min<size_t>( 0.8 * database_cache_->NumImages(), options_->min_model_size);
-        if ((options_->multiple_models && 
-             reconstruction_manager_->Size() > 1 &&
-             reconstruction->NumRegImages() < min_model_size) ||
-            reconstruction->NumRegImages() == 0) {
+          // If the total number of images is small then do not enforce the
+          // minimum model size so that we can reconstruct small image
+          // collections. Always keep the first reconstruction, independent of
+          // size.
+          const size_t min_model_size = std::min<size_t>( 0.8 * database_cache_->NumImages(), options_->min_model_size);
+          if ((options_->multiple_models && 
+              reconstruction_manager_->Size() > 1 &&
+              reconstruction->NumRegImages() < min_model_size) ||
+              reconstruction->NumRegImages() == 0) {
 
-            mapper.EndReconstruction(/*discard=*/true);
-            reconstruction_manager_->Delete(reconstruction_idx);
+              mapper.EndReconstruction(/*discard=*/true);
+              reconstruction_manager_->Delete(reconstruction_idx);
 
-        } else {
-          mapper.EndReconstruction(/*discard=*/false);
-        }
+          } else {
+            mapper.EndReconstruction(/*discard=*/false);
+          }
 
-        Callback(LAST_IMAGE_REG_CALLBACK);
+          Callback(LAST_IMAGE_REG_CALLBACK);
 
-        if (initial_reconstruction_given || !options_->multiple_models ||
-            reconstruction_manager_->Size() >= static_cast<size_t>(options_->max_num_models) ||
-            total_num_reg_images >= database_cache_->NumImages() - 1) {
-          return;
-        }
+          //非常重要！优化结束
+          if (initial_reconstruction_given || //用户是否给定了一个初始的structure
+              !options_->multiple_models ||  //默认值是true
+              reconstruction_manager_->Size() >= static_cast<size_t>(options_->max_num_models) || //submodel的数量足够多， max_num_models默认值 = 50
+              total_num_reg_images >= database_cache_->NumImages() - 1) {//如果所有的图像全部都被注册过了
+            return;
+          }
       } break;
 
       default:

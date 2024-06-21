@@ -40,8 +40,7 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
                               Eigen::Matrix3d* R1,
                               Eigen::Matrix3d* R2,
                               Eigen::Vector3d* t) {
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      E, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd( E, Eigen::ComputeFullU | Eigen::ComputeFullV);
   Eigen::Matrix3d U = svd.matrixU();
   Eigen::Matrix3d V = svd.matrixV().transpose();
 

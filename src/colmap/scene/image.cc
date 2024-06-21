@@ -55,8 +55,7 @@ Image::Image()
 
 void Image::SetUp(const struct Camera& camera) {
   THROW_CHECK_EQ(camera_id_, camera.camera_id);
-  point3D_visibility_pyramid_ = VisibilityPyramid(
-      kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
+  point3D_visibility_pyramid_ = VisibilityPyramid( kNumPoint3DVisibilityPyramidLevels, camera.width, camera.height);
 }
 
 void Image::TearDown() {
@@ -84,6 +83,7 @@ void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
   }
 }
 
+//设置图像中特征点对应的3d点序号
 void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
                                  const point3D_t point3D_id) {
   THROW_CHECK_NE(point3D_id, kInvalidPoint3DId);
@@ -110,6 +110,7 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
                       }) != points2D_.end();
 }
 
+//设置图像的属性信息，表示这个特征点在其他帧被观测到了，即有对应的3d点
 void Image::IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
   const struct Point2D& point2D = points2D_.at(point2D_idx);
 

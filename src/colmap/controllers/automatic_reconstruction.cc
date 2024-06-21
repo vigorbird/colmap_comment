@@ -280,10 +280,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
 #if defined(COLMAP_CUDA_ENABLED)
     {
-      mvs::PatchMatchController patch_match_controller(
-          *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
-      patch_match_controller.SetCheckIfStoppedFunc(
-          [&]() { return IsStopped(); });
+      mvs::PatchMatchController patch_match_controller( *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
+      patch_match_controller.SetCheckIfStoppedFunc( [&]() { return IsStopped(); } );
       patch_match_controller.Run();
     }
 #else   // COLMAP_CUDA_ENABLED
