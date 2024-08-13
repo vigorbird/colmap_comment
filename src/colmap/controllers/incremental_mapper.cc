@@ -286,10 +286,17 @@ IncrementalMapperController::InitializeReconstruction(IncrementalMapper& mapper,
   //2.非常重要的函数！
   mapper.RegisterInitialImagePair( mapper_options, two_view_geometry, image_id1, image_id2);
 
+  //3.
   LOG(INFO) << "Global bundle adjustment";
-  mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());
-  reconstruction.Normalize();
+  mapper.AdjustGlobalBundle(mapper_options, options_->GlobalBundleAdjustment());//
+
+  //4.
+  reconstruction.Normalize();//
+
+  //5.
   mapper.FilterPoints(mapper_options);
+
+  //6.
   mapper.FilterImages(mapper_options);
 
   // Initial image pair failed to register.
@@ -299,6 +306,7 @@ IncrementalMapperController::InitializeReconstruction(IncrementalMapper& mapper,
 
   //默认会进入这个条件
   if (options_->extract_colors) {
+    //7.
     ExtractColors(image_path_, image_id1, reconstruction);
   }
   return Status::SUCCESS;

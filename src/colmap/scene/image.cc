@@ -94,6 +94,7 @@ void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
   point2D.point3D_id = point3D_id;
 }
 
+
 void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
   struct Point2D& point2D = points2D_.at(point2D_idx);
   if (point2D.HasPoint3D()) {

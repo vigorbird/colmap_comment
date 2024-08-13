@@ -81,8 +81,7 @@ class CorrespondenceGraph {
                                                    image_t image_id2) const;
 
   // Get the number of correspondences between all images.
-  std::unordered_map<image_pair_t, point2D_t> NumCorrespondencesBetweenImages()
-      const;
+  std::unordered_map<image_pair_t, point2D_t> NumCorrespondencesBetweenImages() const;
 
   // Finalize the database manager.
   //
@@ -166,7 +165,7 @@ class CorrespondenceGraph {
 
   bool finalized_ = false;
   std::unordered_map<image_t, Image> images_;
-  std::unordered_map<image_pair_t, ImagePair> image_pairs_;
+  std::unordered_map<image_pair_t, ImagePair> image_pairs_;//image_pair_t = 图像匹配对会生成一个唯一的id， value存储的应该是两个匹配对的匹配数量
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -193,8 +192,7 @@ point2D_t CorrespondenceGraph::NumCorrespondencesForImage(
   return images_.at(image_id).num_correspondences;
 }
 
-point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(
-    const image_t image_id1, const image_t image_id2) const {
+point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(const image_t image_id1, const image_t image_id2) const {
   const image_pair_t pair_id =
       Database::ImagePairToPairId(image_id1, image_id2);
   const auto it = image_pairs_.find(pair_id);

@@ -265,6 +265,7 @@ void Reconstruction::DeletePoint3D(const point3D_t point3D_id) {
   points3D_.erase(point3D_id);
 }
 
+//DeleteObservation 实现
 void Reconstruction::DeleteObservation(const image_t image_id,
                                        const point2D_t point2D_idx) {
   // Note: Do not change order of these instructions, especially with respect to
@@ -279,11 +280,12 @@ void Reconstruction::DeleteObservation(const image_t image_id,
     return;
   }
 
-  point3D.track.DeleteElement(image_id, point2D_idx);
+  point3D.track.DeleteElement(image_id, point2D_idx);//从3d点的属性信息中，删除对于这个特征点的观测
 
   const bool kIsDeletedPoint3D = false;
-  ResetTriObservations(image_id, point2D_idx, kIsDeletedPoint3D);
+  ResetTriObservations(image_id, point2D_idx, kIsDeletedPoint3D);//搜索 ResetTriObservations实现
 
+  //这个特征点不再和3D点有关联关系
   image.ResetPoint3DForPoint2D(point2D_idx);
 }
 
@@ -573,13 +575,17 @@ size_t Reconstruction::FilterAllPoints3D(const double max_reproj_error,
   return num_filtered;
 }
 
+//遍历ref image
+//获取这些相机在世界坐标系下的位姿
+//遍历这个图象上的所有特征点，并判断你这个特征点是否有对应的3D点
+//如果有对应的3D点那么将这个3d点投影到相机坐标系下判断z是否小于0
+//如果z小于0
 size_t Reconstruction::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
   for (const auto image_id : reg_image_ids_) {
     const class Image& image = Image(image_id);
     const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D(); ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
         const struct Point3D& point3D = Point3D(point2D.point3D_id);
@@ -1021,6 +1027,7 @@ void Reconstruction::SetObservationAsTriangulated(
   }
 }//end function SetObservationAsTriangulated
 
+//ResetTriObservations实现
 void Reconstruction::ResetTriObservations(const image_t image_id,
                                           const point2D_t point2D_idx,
                                           const bool is_deleted_point3D) {
@@ -1033,23 +1040,19 @@ void Reconstruction::ResetTriObservations(const image_t image_id,
   const Point2D& point2D = image.Point2D(point2D_idx);
   THROW_CHECK(point2D.HasPoint3D());
 
-  const auto corr_range =
-      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+  const auto corr_range =  correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
   for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
     class Image& corr_image = Image(corr->image_id);
     const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
     corr_image.DecrementCorrespondenceHasPoint3D(corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
-    if (point2D.point3D_id == corr_point2D.point3D_id &&
-        (!is_deleted_point3D || image_id < corr->image_id)) {
-      const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr->image_id);
-      THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0)
-          << "The scene graph graph must not contain duplicate matches";
+    if (point2D.point3D_id == corr_point2D.point3D_id && (!is_deleted_point3D || image_id < corr->image_id)) {
+      const image_pair_t pair_id = Database::ImagePairToPairId(image_id, corr->image_id);
+      THROW_CHECK_GT(image_pair_stats_[pair_id].num_tri_corrs, 0) << "The scene graph graph must not contain duplicate matches";
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
     }
   }
-}
+}//end function ResetTriObservations
 
 }  // namespace colmap

@@ -104,10 +104,11 @@ double CalculateNormalizedAngularError(
   return std::acos(ray1.normalized().transpose() * ray2.normalized());
 }
 
+//HasPointPositiveDepth实现
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,
                            const Eigen::Vector3d& point3D) {
-  return cam_from_world.row(2).dot(point3D.homogeneous()) >=
-         std::numeric_limits<double>::epsilon();
+  //point3D.homogeneous() 将一个3维的向量候补一个维度变成4维的向量，候补那个维度赋值为1
+  return cam_from_world.row(2).dot(point3D.homogeneous()) >= std::numeric_limits<double>::epsilon();
 }
 
 }  // namespace colmap
