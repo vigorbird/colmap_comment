@@ -58,10 +58,10 @@ class ReprojErrorCostFunction {
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (
         new ceres::AutoDiffCostFunction<ReprojErrorCostFunction<CameraModel>,
-                                        2,
-                                        4,
-                                        3,
-                                        3,
+                                        2,//残差的维度
+                                        4,//姿态的维度
+                                        3,//位置的维度
+                                        3,//点坐标的维度
                                         CameraModel::num_params>(
             new ReprojErrorCostFunction(point2D)));
   }
@@ -72,10 +72,8 @@ class ReprojErrorCostFunction {
                   const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        EigenQuaternionMap<T>(cam_from_world_rotation) *
-            EigenVector3Map<T>(point3D) +
-        EigenVector3Map<T>(cam_from_world_translation);
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam = EigenQuaternionMap<T>(cam_from_world_rotation) * EigenVector3Map<T>(point3D) + EigenVector3Map<T>(cam_from_world_translation);
+    //根据点在相机坐标系下的坐标投影到图像上，并计算得到投影的像素坐标
     CameraModel::ImgFromCam(camera_params,
                             point3D_in_cam[0],
                             point3D_in_cam[1],
@@ -95,8 +93,7 @@ class ReprojErrorCostFunction {
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
-class ReprojErrorConstantPoseCostFunction
-    : public ReprojErrorCostFunction<CameraModel> {
+class ReprojErrorConstantPoseCostFunction : public ReprojErrorCostFunction<CameraModel> {
   using Parent = ReprojErrorCostFunction<CameraModel>;
 
  public:
@@ -497,6 +494,8 @@ class IsotropicNoiseCostFunctionWrapper {
   }
 };
 
+//非差值得借鉴学学习的代码！！！！！！！！！！！！！！
+//需要明确的是返回的是一个costfunction的实例
 template <template <typename> class CostFunction, typename... Args>
 ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
                                         Args&&... args) {
@@ -508,10 +507,11 @@ ceres::CostFunction* CameraCostFunction(const CameraModelId camera_model_id,
 
     CAMERA_MODEL_SWITCH_CASES
 
-#undef CAMERA_MODEL_CASE
+#undef CAMERA_MODEL_CASE//取消宏定义，以防止它在后续代码中的意外使用
   }
 }
 
+//为四元数设置参数化方法
 inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
@@ -522,6 +522,7 @@ inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
 #endif
 }
 
+//设置参数的某个部分固定不变
 inline void SetSubsetManifold(int size,
                               const std::vector<int>& constant_params,
                               ceres::Problem* problem,
@@ -532,7 +533,7 @@ inline void SetSubsetManifold(int size,
                        new ceres::SubsetManifold(size, constant_params));
 #else
   problem->SetParameterization(
-      params, new ceres::SubsetParameterization(size, constant_params));
+      params, new ceres::SubsetParameterization(size, constant_params));//通常SubsetParameterization用来维持一个参数块的某个部分是constant并保持不变
 #endif
 }
 

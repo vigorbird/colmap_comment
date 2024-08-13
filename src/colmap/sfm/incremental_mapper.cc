@@ -708,6 +708,7 @@ bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleA
   }
 
   // Avoid degeneracies in bundle adjustment.
+  //1.
   reconstruction_->FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
@@ -727,6 +728,7 @@ bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleA
   }
 
   // Fix 7-DOFs of the bundle adjustment problem.
+  //2.
   ba_config.SetConstantCamPose(reg_image_ids[0]);//告诉ba 哪些相机的位姿是作为常量不被优化的！
   //默认一定会进入这个条件的！
   if (!options.fix_existing_images || !existing_image_ids_.count(reg_image_ids[1])) {
@@ -734,9 +736,9 @@ bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleA
   }
 
   // Run bundle adjustment.
-  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-  //搜索 BundleAdjuster::Solve
-  return bundle_adjuster.Solve(reconstruction_.get());//非常重要的函数 搜索“BundleAdjuster::Solve”
+  BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);//！！！！构建问题
+  //4.开始进行非线性优化
+  return bundle_adjuster.Solve(reconstruction_.get());//非常重要的函数 搜索 BundleAdjuster::Solve
 }//end function AdjustGlobalBundle
 
 

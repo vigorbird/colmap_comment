@@ -157,8 +157,8 @@ class BundleAdjustmentConfig {
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<image_t> constant_cam_poses_;
-  std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;
+  std::unordered_set<image_t> constant_cam_poses_;//哪些相机的 “位姿” 不进行优化
+  std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;//哪些相机的 “位置” 不进行优化
 };//end class BundleAdjustmentConfig
 
 // Bundle adjustment based on Ceres-Solver. Enables most flexible configurations

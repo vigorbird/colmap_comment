@@ -265,7 +265,7 @@ void Reconstruction::DeletePoint3D(const point3D_t point3D_id) {
   points3D_.erase(point3D_id);
 }
 
-//DeleteObservation 实现
+//DeleteObservation实现
 void Reconstruction::DeleteObservation(const image_t image_id,
                                        const point2D_t point2D_idx) {
   // Note: Do not change order of these instructions, especially with respect to
@@ -590,7 +590,7 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
       if (point2D.HasPoint3D()) {
         const struct Point3D& point3D = Point3D(point2D.point3D_id);
         if (!HasPointPositiveDepth(cam_from_world, point3D.xyz)) {
-          DeleteObservation(image_id, point2D_idx);
+          DeleteObservation(image_id, point2D_idx);//非常重要的函数！！！！！
           num_filtered += 1;
         }
       }

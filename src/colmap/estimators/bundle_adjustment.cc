@@ -255,12 +255,16 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
+  //1.先构造ceres的problem
   ceres::Problem::Options problem_options;
-  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;//不允许ceres内部对指针的内容进行析构
   problem_ = std::make_unique<ceres::Problem>(problem_options);
 
+  //2.
+  //选择对原始残差使用那种loss函数，默认好像是trivial，还可以选择softone和cauchy
+  //每个loss的定义详见https://blog.csdn.net/qq_38410730/article/details/131439027
   const auto loss_function =  std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  SetUp(reconstruction, loss_function.get());//非常重要的函数！！！！！
+  SetUp(reconstruction, loss_function.get());//搜索 BundleAdjuster::SetUp
 
   if (problem_->NumResiduals() == 0) {
     return false;
@@ -313,28 +317,34 @@ const ceres::Solver::Summary& BundleAdjuster::Summary() const {
   return summary_;
 }
 
+//
 void BundleAdjuster::SetUp(Reconstruction* reconstruction,
                            ceres::LossFunction* loss_function) {
   // Warning: AddPointsToProblem assumes that AddImageToProblem is called first.
   // Do not change order of instructions!
   for (const image_t image_id : config_.Images()) {
-    AddImageToProblem(image_id, reconstruction, loss_function);
+    AddImageToProblem(image_id, reconstruction, loss_function);//实现就在下面
   }
+
   for (const auto point3D_id : config_.VariablePoints()) {
     AddPointToProblem(point3D_id, reconstruction, loss_function);
   }
+
   for (const auto point3D_id : config_.ConstantPoints()) {
     AddPointToProblem(point3D_id, reconstruction, loss_function);
   }
 
-  ParameterizeCameras(reconstruction);
-  ParameterizePoints(reconstruction);
+  ParameterizeCameras(reconstruction);//设置相机内参是否参与优化是
+  //搜索 BundleAdjuster::ParameterizePoints 
+  ParameterizePoints(reconstruction);//如果3d点被观测足够多的次数，那么也设置为固定值，不参与优化
+
 }
 
 void BundleAdjuster::TearDown(Reconstruction*) {
   // Nothing to do
 }
 
+//
 void BundleAdjuster::AddImageToProblem(const image_t image_id,
                                        Reconstruction* reconstruction,
                                        ceres::LossFunction* loss_function) {
@@ -342,15 +352,13 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   Camera& camera = reconstruction->Camera(image.CameraId());
 
   // CostFunction assumes unit quaternions.
-  image.CamFromWorld().rotation.normalize();
+  image.CamFromWorld().rotation.normalize();//rotation数据类型四元数
 
-  double* cam_from_world_rotation =
-      image.CamFromWorld().rotation.coeffs().data();
+  double* cam_from_world_rotation = image.CamFromWorld().rotation.coeffs().data();
   double* cam_from_world_translation = image.CamFromWorld().translation.data();
-  double* camera_params = camera.params.data();
+  double* camera_params = camera.params.data();//相机的fx fy cx cy参数
 
-  const bool constant_cam_pose =
-      !options_.refine_extrinsics || config_.HasConstantCamPose(image_id);
+  const bool constant_cam_pose = !options_.refine_extrinsics || config_.HasConstantCamPose(image_id);
 
   // Add residuals to bundle adjustment problem.
   size_t num_observations = 0;
@@ -366,15 +374,13 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     assert(point3D.track.Length() > 1);
 
     if (constant_cam_pose) {
-      problem_->AddResidualBlock(
-          CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-              camera.model_id, image.CamFromWorld(), point2D.xy),
-          loss_function,
-          point3D.xyz.data(),
-          camera_params);
+      //这里作者使用了一个高级用法！！！！！！非差值得借鉴！！！
+      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorConstantPoseCostFunction>(camera.model_id, image.CamFromWorld(), point2D.xy),
+                                loss_function,
+                                point3D.xyz.data(),
+                                camera_params);
     } else {
-      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(
-                                     camera.model_id, point2D.xy),
+      problem_->AddResidualBlock(CameraCostFunction<ReprojErrorCostFunction>(camera.model_id, point2D.xy),
                                  loss_function,
                                  cam_from_world_rotation,
                                  cam_from_world_translation,
@@ -388,10 +394,9 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
     // Set pose parameterization.
     if (!constant_cam_pose) {
-      SetQuaternionManifold(problem_.get(), cam_from_world_rotation);
+      SetQuaternionManifold(problem_.get(), cam_from_world_rotation);//设置四元数的流行
       if (config_.HasConstantCamPositions(image_id)) {
-        const std::vector<int>& constant_position_idxs =
-            config_.ConstantCamPositions(image_id);
+        const std::vector<int>& constant_position_idxs = config_.ConstantCamPositions(image_id);
         SetSubsetManifold(3,
                           constant_position_idxs,
                           problem_.get(),
@@ -399,7 +404,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       }
     }
   }
-}
+}//end function AddImageToProblem
 
 void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
                                        Reconstruction* reconstruction,
@@ -435,15 +440,15 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       camera_ids_.insert(image.CameraId());
       config_.SetConstantCamIntrinsics(image.CameraId());
     }
-    problem_->AddResidualBlock(
-        CameraCostFunction<ReprojErrorConstantPoseCostFunction>(
-            camera.model_id, image.CamFromWorld(), point2D.xy),
-        loss_function,
-        point3D.xyz.data(),
-        camera.params.data());
+    problem_->AddResidualBlock(CameraCostFunction<ReprojErrorConstantPoseCostFunction>(camera.model_id, image.CamFromWorld(), point2D.xy),
+                                loss_function,
+                                point3D.xyz.data(),
+                                camera.params.data());
   }
-}
+}//end function AddPointToProblem
 
+
+//如果相机的内参不优化，则直接设置为固定值
 void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
   const bool constant_camera = !options_.refine_focal_length &&
                                !options_.refine_principal_point &&
@@ -459,18 +464,15 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 
       if (!options_.refine_focal_length) {
         const span<const size_t> params_idxs = camera.FocalLengthIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+        const_camera_params.insert(const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
       if (!options_.refine_principal_point) {
         const span<const size_t> params_idxs = camera.PrincipalPointIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+        const_camera_params.insert(const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
       if (!options_.refine_extra_params) {
         const span<const size_t> params_idxs = camera.ExtraParamsIdxs();
-        const_camera_params.insert(
-            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
+        const_camera_params.insert(const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
 
       if (const_camera_params.size() > 0) {
@@ -481,8 +483,9 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
       }
     }
   }
-}
+}//end function ParameterizeCameras
 
+//如果3d点被观测足够多的次数，那么也设置为固定值，不参与优化
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
   for (const auto elem : point3D_num_observations_) {
     Point3D& point3D = reconstruction->Point3D(elem.first);
