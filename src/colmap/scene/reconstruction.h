@@ -95,8 +95,7 @@ class Reconstruction {
   inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
   inline const std::unordered_map<point3D_t, struct Point3D>& Points3D() const;
-  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
-      const;
+  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs() const;
 
   // Identifiers of all 3D points.
   std::unordered_set<point3D_t> Point3DIds() const;

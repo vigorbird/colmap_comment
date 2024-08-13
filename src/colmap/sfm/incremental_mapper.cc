@@ -697,6 +697,7 @@ bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleA
 
   BundleAdjustmentOptions ba_options_tmp = ba_options;
   // Use stricter convergence criteria for first registered images.
+  //如果注册的图像太少，那么降低阈值和优化次数，意味着更严格的优化条件
   const size_t kMinNumRegImagesForFastBA = 10;
   if (reg_image_ids.size() < kMinNumRegImagesForFastBA) {
     ba_options_tmp.solver_options.function_tolerance /= 10;
@@ -712,10 +713,11 @@ bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleA
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
+    ba_config.AddImage(image_id);//搜索 BundleAdjustmentConfig::AddImage
   }
 
   // Fix the existing images, if option specified.
+  //默认是不进入这个条件的
   if (options.fix_existing_images) {
     for (const image_t image_id : reg_image_ids) {
       if (existing_image_ids_.count(image_id)) {
@@ -725,15 +727,17 @@ bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleA
   }
 
   // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantCamPose(reg_image_ids[0]);
+  ba_config.SetConstantCamPose(reg_image_ids[0]);//告诉ba 哪些相机的位姿是作为常量不被优化的！
+  //默认一定会进入这个条件的！
   if (!options.fix_existing_images || !existing_image_ids_.count(reg_image_ids[1])) {
     ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
   }
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options_tmp, ba_config);
-  return bundle_adjuster.Solve(reconstruction_.get());
-}
+  //搜索 BundleAdjuster::Solve
+  return bundle_adjuster.Solve(reconstruction_.get());//非常重要的函数 搜索“BundleAdjuster::Solve”
+}//end function AdjustGlobalBundle
 
 
 

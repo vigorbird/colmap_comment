@@ -172,26 +172,21 @@ bool BundleAdjustmentConfig::HasConstantCamPose(const image_t image_id) const {
   return constant_cam_poses_.find(image_id) != constant_cam_poses_.end();
 }
 
-void BundleAdjustmentConfig::SetConstantCamPositions(
-    const image_t image_id, const std::vector<int>& idxs) {
+void BundleAdjustmentConfig::SetConstantCamPositions(const image_t image_id, const std::vector<int>& idxs) {
   THROW_CHECK_GT(idxs.size(), 0);
   THROW_CHECK_LE(idxs.size(), 3);
   THROW_CHECK(HasImage(image_id));
   THROW_CHECK(!HasConstantCamPose(image_id));
-  THROW_CHECK(!VectorContainsDuplicateValues(idxs))
-      << "Tvec indices must not contain duplicates";
+  THROW_CHECK(!VectorContainsDuplicateValues(idxs)) << "Tvec indices must not contain duplicates";
   constant_cam_positions_.emplace(image_id, idxs);
 }
 
-void BundleAdjustmentConfig::RemoveConstantCamPositions(
-    const image_t image_id) {
+void BundleAdjustmentConfig::RemoveConstantCamPositions(const image_t image_id) {
   constant_cam_positions_.erase(image_id);
 }
 
-bool BundleAdjustmentConfig::HasConstantCamPositions(
-    const image_t image_id) const {
-  return constant_cam_positions_.find(image_id) !=
-         constant_cam_positions_.end();
+bool BundleAdjustmentConfig::HasConstantCamPositions(const image_t image_id) const {
+  return constant_cam_positions_.find(image_id) !=   constant_cam_positions_.end();
 }
 
 const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
@@ -208,8 +203,7 @@ const std::unordered_set<point3D_t>& BundleAdjustmentConfig::ConstantPoints()
   return constant_point3D_ids_;
 }
 
-const std::vector<int>& BundleAdjustmentConfig::ConstantCamPositions(
-    const image_t image_id) const {
+const std::vector<int>& BundleAdjustmentConfig::ConstantCamPositions( const image_t image_id) const {
   return constant_cam_positions_.at(image_id);
 }
 
@@ -255,6 +249,8 @@ BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
   THROW_CHECK(options_.Check());
 }
 
+
+//
 bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   THROW_CHECK_NOTNULL(reconstruction);
   THROW_CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
@@ -263,17 +259,15 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   problem_ = std::make_unique<ceres::Problem>(problem_options);
 
-  const auto loss_function =
-      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
-  SetUp(reconstruction, loss_function.get());
+  const auto loss_function =  std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
+  SetUp(reconstruction, loss_function.get());//非常重要的函数！！！！！
 
   if (problem_->NumResiduals() == 0) {
     return false;
   }
 
   ceres::Solver::Options solver_options = options_.solver_options;
-  const bool has_sparse =
-      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
+  const bool has_sparse = solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
@@ -288,18 +282,16 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-  if (problem_->NumResiduals() <
-      options_.min_num_residuals_for_multi_threading) {
+  //min_num_residuals_for_multi_threading 默认值 = 5000
+  if (problem_->NumResiduals() < options_.min_num_residuals_for_multi_threading) {
     solver_options.num_threads = 1;
 #if CERES_VERSION_MAJOR < 2
     solver_options.num_linear_solver_threads = 1;
 #endif  // CERES_VERSION_MAJOR
   } else {
-    solver_options.num_threads =
-        GetEffectiveNumThreads(solver_options.num_threads);
+    solver_options.num_threads =  GetEffectiveNumThreads(solver_options.num_threads);
 #if CERES_VERSION_MAJOR < 2
-    solver_options.num_linear_solver_threads =
-        GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
+    solver_options.num_linear_solver_threads =  GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
   }
 
@@ -312,7 +304,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     PrintSolverSummary(summary_, "Bundle adjustment report");
   }
 
-  TearDown(reconstruction);
+  TearDown(reconstruction);//do nothing!
 
   return true;
 }

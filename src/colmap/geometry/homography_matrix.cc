@@ -190,7 +190,7 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               Eigen::Matrix3d* R,//输出
                               Eigen::Vector3d* t,//输出
                               Eigen::Vector3d* n,//输出
-                              std::vector<Eigen::Vector3d>* points3D) {//输出，有效输出的3D点
+                              std::vector<Eigen::Vector3d>* points3D) {//输出，有效输出的三角化的点
   THROW_CHECK_EQ(points1.size(), points2.size());
 
   std::vector<Eigen::Matrix3d> R_cmbs;

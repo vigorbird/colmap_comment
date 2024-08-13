@@ -343,8 +343,8 @@ void BindSfM(py::module& m) {
         "Triangulate 3D points from known camera poses");
 
   m.def("incremental_mapping",
-        &IncrementalMapping,
         "database_path"_a,
+        &IncrementalMapping,
         "image_path"_a,
         "output_path"_a,
         "options"_a = mapper_options,
